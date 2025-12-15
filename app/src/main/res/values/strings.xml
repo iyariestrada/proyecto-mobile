@@ -1,3 +1,35 @@
 <resources>
-    <string name="app_name">SensorProjectV1</string>
+    <string name="app_name">SafeWalk</string>
+
+    <!-- Navigation Drawer -->
+    <string name="drawer_open">Abrir menu</string>
+    <string name="drawer_close">Cerrar menu</string>
+
+    <!-- Menu Items -->
+    <string name="menu_inicio">Inicio</string>
+    <string name="menu_perfil">Perfil</string>
+    <string name="menu_avisos">Avisos</string>
+    <string name="menu_estadisticas">Estadisticas</string>
+    <string name="menu_ajustes">Ajustes</string>
+
+    <!-- Home Screen -->
+    <string name="welcome_message">Bienvenido a SafeWalk</string>
+    <string name="login_prompt">Inicia sesion o registrate para participar en el estudio</string>
+    <string name="btn_login">Iniciar Sesion</string>
+    <string name="btn_register">Registrarse</string>
+    <string name="anonymous_mode">Modo anonimo activo</string>
+
+    <!-- Settings -->
+    <string name="settings_alerts">Alertas</string>
+    <string name="settings_sound_alert">Alerta de sonido</string>
+    <string name="settings_vibration_alert">Alerta de vibracion</string>
+    <string name="settings_participate">Participar en el estudio</string>
+    <string name="settings_participate_desc">Tus datos seran compartidos de forma anonima para investigacion</string>
+    <string name="settings_anonymous_desc">Tus datos se guardan localmente de forma anonima</string>
+
+    <!-- Status -->
+    <string name="status_walking">Caminando</string>
+    <string name="status_using_phone">Usando telefono</string>
+    <string name="status_alert">ALERTA: Caminando y usando el telefono</string>
+    <string name="status_safe">Estado seguro</string>
 </resources>
