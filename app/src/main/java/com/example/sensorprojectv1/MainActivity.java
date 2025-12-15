@@ -33,7 +33,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener, NavigationView.OnNavigationItemSelectedListener {
+public class MainActivity extends AppCompatActivity
+        implements SensorEventListener, NavigationView.OnNavigationItemSelectedListener {
 
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
@@ -46,7 +47,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private static final String API_URL = "http://192.168.1.80:3001/api/sensor/write";
 
-    private static final float WALKING_VARIANCE_THRESHOLD = 0.5f;
+    // Umbrales de varianza para diferentes tipos de caminata
+    private static final float WALKING_VARIANCE_SLOW = 0.3f; // Caminata lenta
+    private static final float WALKING_VARIANCE_NORMAL = 0.6f; // Caminata normal
+    private static final float WALKING_VARIANCE_FAST = 1.2f; // Caminata rápida
+
     private static final int SAMPLE_SIZE = 20;
     private static final long WALKING_CHECK_INTERVAL = 250;
     private float[] accMagnitudeHistory = new float[SAMPLE_SIZE];
@@ -54,6 +59,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private long lastWalkingCheck = 0;
     private int stepCount = 0;
     private boolean isWalking = false;
+    private String walkingSpeed = "Ninguna"; // "Lenta", "Normal", "Rapida", "Ninguna"
+    private float currentVariance = 0.0f;
 
     private static final float PHONE_USE_GYRO_THRESHOLD = 0.2f;
     private static final float PHONE_TILT_MIN = 20.0f;
@@ -193,6 +200,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 json.put("isUsingPhone", isUsingPhone);
                 json.put("isWalkingAndUsingPhone", isWalkingAndUsingPhone);
                 json.put("stepCount", stepCount);
+                json.put("walkingSpeed", walkingSpeed);
+                json.put("variance", currentVariance);
                 json.put("timestamp", System.currentTimeMillis());
 
                 json.put("batteryLevel", getBatteryLevel());
@@ -204,7 +213,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                 // Agregar si participa en el estudio
                 json.put("participate", preferencesManager.isParticipateEnabled());
-                json.put("userEmail", preferencesManager.isUserLoggedIn() ? preferencesManager.getUserEmail() : "anonymous");
+                json.put("userEmail",
+                        preferencesManager.isUserLoggedIn() ? preferencesManager.getUserEmail() : "anonymous");
 
                 OutputStream os = conn.getOutputStream();
                 os.write(json.toString().getBytes("UTF-8"));
@@ -275,26 +285,58 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void detectWalking(float accX, float accY, float accZ) {
+        // Calcular magnitud de aceleración
         float magnitude = (float) Math.sqrt(accX * accX + accY * accY + accZ * accZ);
 
+        // Almacenar en historial
         accMagnitudeHistory[sampleIndex] = magnitude;
         sampleIndex = (sampleIndex + 1) % SAMPLE_SIZE;
 
         long currentTime = System.currentTimeMillis();
 
+        // Analizar cada 250ms
         if (currentTime - lastWalkingCheck >= WALKING_CHECK_INTERVAL) {
             lastWalkingCheck = currentTime;
 
-            float variance = calculateVariance(accMagnitudeHistory);
+            // Calcular varianza de las muestras
+            currentVariance = calculateVariance(accMagnitudeHistory);
 
-            if (variance > WALKING_VARIANCE_THRESHOLD) {
+            // Calcular frecuencia de pasos (detectar patrón repetitivo)
+            float frequency = calculateFrequency(accMagnitudeHistory);
+
+            // Determinar tipo de caminata según varianza y frecuencia
+            String previousSpeed = walkingSpeed;
+
+            if (currentVariance >= WALKING_VARIANCE_FAST) {
                 isWalking = true;
-                stepCount++;
-                Log.d("WALKING_DETECTION", "Varianza: " + variance + " - Caminando detectado");
+                walkingSpeed = "Rapida";
+                if (!previousSpeed.equals("Rapida")) {
+                    stepCount++;
+                }
+            } else if (currentVariance >= WALKING_VARIANCE_NORMAL) {
+                isWalking = true;
+                walkingSpeed = "Normal";
+                if (!previousSpeed.equals("Normal") && !previousSpeed.equals("Rapida")) {
+                    stepCount++;
+                }
+            } else if (currentVariance >= WALKING_VARIANCE_SLOW) {
+                isWalking = true;
+                walkingSpeed = "Lenta";
+                if (!previousSpeed.equals("Lenta") && !previousSpeed.equals("Normal")
+                        && !previousSpeed.equals("Rapida")) {
+                    stepCount++;
+                }
             } else {
                 isWalking = false;
-                Log.d("WALKING_DETECTION", "Varianza: " + variance + " - Estático");
+                walkingSpeed = "Ninguna";
             }
+
+            // Log detallado
+            Log.d("WALKING_DETECTION", String.format(
+                    "Varianza: %.3f | Frecuencia: %.2f Hz | Magnitud: %.3f | Estado: %s | Caminata: %s | Pasos: %d",
+                    currentVariance, frequency, magnitude,
+                    isWalking ? "CAMINANDO" : "ESTATICO",
+                    walkingSpeed, stepCount));
         }
     }
 
@@ -313,39 +355,118 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return varianceSum / samples.length;
     }
 
+    private float calculateFrequency(float[] samples) {
+        // Detectar picos en la señal para estimar frecuencia de pasos
+        int peakCount = 0;
+        float mean = 0;
+
+        for (float sample : samples) {
+            mean += sample;
+        }
+        mean /= samples.length;
+
+        // Contar cruces por encima de la media (picos)
+        boolean aboveMean = samples[0] > mean;
+        for (int i = 1; i < samples.length; i++) {
+            boolean currentAboveMean = samples[i] > mean;
+            if (currentAboveMean && !aboveMean) {
+                peakCount++;
+            }
+            aboveMean = currentAboveMean;
+        }
+
+        // Frecuencia en Hz (muestras por segundo / muestras totales * picos)
+        // Con SAMPLE_SIZE=20 y WALKING_CHECK_INTERVAL=250ms, tenemos 4 análisis por
+        // segundo
+        float samplesPerSecond = 1000.0f / WALKING_CHECK_INTERVAL;
+        float frequency = (peakCount * samplesPerSecond) / SAMPLE_SIZE;
+
+        return frequency;
+    }
+
     private void detectPhoneUsage(float gyroX, float gyroY, float gyroZ,
             float accX, float accY, float accZ) {
+        // Magnitud del giroscopio (movimiento rotacional)
         float gyroMagnitude = (float) Math.sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
 
+        // Calcular orientación del teléfono
         float pitch = (float) Math.toDegrees(Math.atan2(accX, Math.sqrt(accY * accY + accZ * accZ)));
         float roll = (float) Math.toDegrees(Math.atan2(accY, accZ));
 
+        // Verificar si está en posición de uso
         boolean isPhoneOriented = (Math.abs(pitch) > PHONE_TILT_MIN && Math.abs(pitch) < PHONE_TILT_MAX) ||
                 (Math.abs(roll) > PHONE_TILT_MIN && Math.abs(roll) < PHONE_TILT_MAX);
 
-        isUsingPhone = (gyroMagnitude > PHONE_USE_GYRO_THRESHOLD) || isPhoneOriented;
+        // Determinar si está usando el teléfono
+        boolean gyroActive = gyroMagnitude > PHONE_USE_GYRO_THRESHOLD;
+        isUsingPhone = gyroActive || isPhoneOriented;
 
-        Log.d("PHONE_USAGE", String.format("Gyro: %.3f, Pitch: %.2f, Roll: %.2f, Using: %s",
-                gyroMagnitude, pitch, roll, isUsingPhone ? "SI" : "NO"));
+        // Log detallado con códigos de detección
+        String detectionReason = "";
+        if (gyroActive && isPhoneOriented) {
+            detectionReason = "GYRO+ORIENTACION";
+        } else if (gyroActive) {
+            detectionReason = "GYRO";
+        } else if (isPhoneOriented) {
+            detectionReason = "ORIENTACION";
+        } else {
+            detectionReason = "NINGUNO";
+        }
+
+        Log.d("PHONE_USAGE", String.format(
+                "GyroMag: %.3f | Pitch: %.2f° | Roll: %.2f° | Orientado: %s | Activo: %s | Usando: %s | Razon: %s",
+                gyroMagnitude, pitch, roll,
+                isPhoneOriented ? "SI" : "NO",
+                gyroActive ? "SI" : "NO",
+                isUsingPhone ? "SI" : "NO",
+                detectionReason));
     }
 
     private void detectWalkingAndPhoneUse() {
         boolean previousState = isWalkingAndUsingPhone;
         isWalkingAndUsingPhone = isWalking && isUsingPhone;
 
+        // Construir mensaje de estado detallado
         String status = "";
+        String statusColor = "#4CAF50";
+
         if (isWalkingAndUsingPhone) {
-            status = "ALERTA: Caminando y usando el telefono";
+            status = String.format("ALERTA: Caminando (%s) y usando el telefono", walkingSpeed);
+            statusColor = "#F44336";
         } else if (isWalking) {
-            status = "Caminando";
+            status = String.format("Caminando - Velocidad: %s", walkingSpeed);
+            statusColor = "#FF9800";
         } else if (isUsingPhone) {
-            status = "Usando telefono";
+            status = "Usando telefono (estatico)";
+            statusColor = "#2196F3";
         } else {
-            status = "Estado seguro";
+            status = "Estado seguro - Sin actividad";
+            statusColor = "#4CAF50";
         }
 
-        status += String.format("\n\nPasos: %d\nCaminando: %s\nUsando telefono: %s",
-                stepCount, isWalking ? "Si" : "No", isUsingPhone ? "Si" : "No");
+        // Información detallada
+        status += String.format("\n\n--- DETECCION ---" +
+                "\nPasos totales: %d" +
+                "\nCaminando: %s" +
+                "\nTipo caminata: %s" +
+                "\nVarianza: %.3f" +
+                "\nUsando telefono: %s" +
+                "\nAlertas totales: %d",
+                stepCount,
+                isWalking ? "SI" : "NO",
+                walkingSpeed,
+                currentVariance,
+                isUsingPhone ? "SI" : "NO",
+                totalAlerts);
+
+        // Log de estado combinado
+        Log.i("DETECTION_STATUS", String.format(
+                "=== ESTADO GENERAL === | Caminando: %s (%s) | Telefono: %s | ALERTA: %s | Varianza: %.3f",
+                isWalking ? "SI" : "NO",
+                walkingSpeed,
+                isUsingPhone ? "SI" : "NO",
+                isWalkingAndUsingPhone ? "ACTIVA" : "NO",
+                currentVariance));
 
         // Actualizar HomeFragment si está visible
         String finalStatus = status;
@@ -358,6 +479,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Si cambió el estado a alerta, activar sonido/vibración
         if (!previousState && isWalkingAndUsingPhone) {
             totalAlerts++;
+            Log.w("ALERT_TRIGGERED", String.format(
+                    "NUEVA ALERTA #%d - Caminata: %s | Varianza: %.3f",
+                    totalAlerts, walkingSpeed, currentVariance));
             triggerAlert();
             sendAlertToServer();
         }
@@ -367,7 +491,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         runOnUiThread(() -> {
             // Vibración
             if (preferencesManager.isVibrationAlertEnabled() && vibrator != null) {
-                long[] pattern = {0, 500, 200, 500};
+                long[] pattern = { 0, 500, 200, 500 };
                 vibrator.vibrate(pattern, -1);
             }
 
