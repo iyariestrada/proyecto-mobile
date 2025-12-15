@@ -1,5 +1,6 @@
 package com.example.sensorprojectv1;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -42,11 +43,13 @@ public class HomeFragment extends Fragment {
 
         // Botones de login/registro
         btnLogin.setOnClickListener(v -> {
-            Toast.makeText(requireContext(), "Funcionalidad de login en desarrollo", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(requireContext(), LoginActivity.class);
+            startActivity(intent);
         });
 
         btnRegister.setOnClickListener(v -> {
-            Toast.makeText(requireContext(), "Funcionalidad de registro en desarrollo", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(requireContext(), RegisterActivity.class);
+            startActivity(intent);
         });
 
         return view;

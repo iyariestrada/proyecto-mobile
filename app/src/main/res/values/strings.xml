@@ -32,4 +32,21 @@
     <string name="status_using_phone">Usando telefono</string>
     <string name="status_alert">ALERTA: Caminando y usando el telefono</string>
     <string name="status_safe">Estado seguro</string>
+
+    <!-- Login/Register -->
+    <string name="login_title">Iniciar Sesion</string>
+    <string name="register_title">Crear Cuenta</string>
+    <string name="email_hint">Correo electronico</string>
+    <string name="password_hint">Contrasena</string>
+    <string name="username_hint">Nombre de usuario</string>
+    <string name="confirm_password_hint">Confirmar contrasena</string>
+    <string name="forgot_password">Olvide mi contrasena</string>
+    <string name="continue_with_google">Continuar con Google</string>
+    <string name="continue_anonymous">Continuar sin cuenta</string>
+    <string name="no_account">No tienes cuenta?</string>
+    <string name="have_account">Ya tienes cuenta?</string>
+    <string name="register_here">Registrate aqui</string>
+    <string name="login_here">Inicia sesion</string>
+    <string name="accept_terms">Acepto los terminos y condiciones</string>
+    <string name="participate_study">Deseo participar en el estudio de investigacion</string>
 </resources>
