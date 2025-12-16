@@ -38,6 +38,13 @@
         <activity
             android:name=".MainActivity"
             android:exported="false" />
+
+        <!-- Edit Profile Activity -->
+        <activity
+            android:name=".EditProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SensorProjectV1"
+            android:parentActivityName=".MainActivity" />
     </application>
 
 </manifest>

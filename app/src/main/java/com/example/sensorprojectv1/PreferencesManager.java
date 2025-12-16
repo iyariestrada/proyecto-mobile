@@ -9,8 +9,11 @@ public class PreferencesManager {
     private static final String KEY_VIBRATION_ALERT = "vibration_alert";
     private static final String KEY_PARTICIPATE = "participate";
     private static final String KEY_USER_LOGGED_IN = "user_logged_in";
+    private static final String KEY_USER_ID = "user_id";
     private static final String KEY_USER_NAME = "user_name";
     private static final String KEY_USER_EMAIL = "user_email";
+    private static final String KEY_USER_TOKEN = "user_token";
+    private static final String KEY_USER_TYPE = "user_type";
 
     private SharedPreferences preferences;
 
@@ -70,11 +73,38 @@ public class PreferencesManager {
         return preferences.getString(KEY_USER_EMAIL, "");
     }
 
+    public void setUserId(int id) {
+        preferences.edit().putInt(KEY_USER_ID, id).apply();
+    }
+
+    public int getUserId() {
+        return preferences.getInt(KEY_USER_ID, -1);
+    }
+
+    public void setUserToken(String token) {
+        preferences.edit().putString(KEY_USER_TOKEN, token).apply();
+    }
+
+    public String getUserToken() {
+        return preferences.getString(KEY_USER_TOKEN, "");
+    }
+
+    public void setUserType(String type) {
+        preferences.edit().putString(KEY_USER_TYPE, type).apply();
+    }
+
+    public String getUserType() {
+        return preferences.getString(KEY_USER_TYPE, "");
+    }
+
     public void logout() {
         preferences.edit()
                 .putBoolean(KEY_USER_LOGGED_IN, false)
+                .putInt(KEY_USER_ID, -1)
                 .putString(KEY_USER_NAME, "")
                 .putString(KEY_USER_EMAIL, "")
+                .putString(KEY_USER_TOKEN, "")
+                .putString(KEY_USER_TYPE, "")
                 .apply();
     }
 }

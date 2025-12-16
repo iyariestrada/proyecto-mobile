@@ -17,7 +17,7 @@ import androidx.fragment.app.Fragment;
 public class ProfileFragment extends Fragment {
 
     private TextView tvProfileName, tvProfileEmail, tvParticipationStatus;
-    private Button btnLogout, btnProfileLogin;
+    private Button btnLogout, btnProfileLogin, btnEditProfile;
     private CardView cardUserInfo, cardNotLoggedIn;
     private PreferencesManager preferencesManager;
 
@@ -34,6 +34,7 @@ public class ProfileFragment extends Fragment {
         tvParticipationStatus = view.findViewById(R.id.tvParticipationStatus);
         btnLogout = view.findViewById(R.id.btnLogout);
         btnProfileLogin = view.findViewById(R.id.btnProfileLogin);
+        btnEditProfile = view.findViewById(R.id.btnEditProfile);
         cardUserInfo = view.findViewById(R.id.cardUserInfo);
         cardNotLoggedIn = view.findViewById(R.id.cardNotLoggedIn);
 
@@ -50,6 +51,12 @@ public class ProfileFragment extends Fragment {
             requireActivity().finish();
         });
 
+        // Listener del botón editar perfil
+        btnEditProfile.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), EditProfileActivity.class);
+            startActivity(intent);
+        });
+
         return view;
     }
 
@@ -58,6 +65,7 @@ public class ProfileFragment extends Fragment {
             // Usuario logueado - Mostrar información
             cardUserInfo.setVisibility(View.VISIBLE);
             cardNotLoggedIn.setVisibility(View.GONE);
+            btnEditProfile.setVisibility(View.VISIBLE);
             btnLogout.setVisibility(View.VISIBLE);
 
             String userName = preferencesManager.getUserName();
@@ -79,6 +87,7 @@ public class ProfileFragment extends Fragment {
             // Usuario no logueado
             cardUserInfo.setVisibility(View.GONE);
             cardNotLoggedIn.setVisibility(View.VISIBLE);
+            btnEditProfile.setVisibility(View.GONE);
             btnLogout.setVisibility(View.GONE);
         }
     }

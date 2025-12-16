@@ -4,7 +4,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Patterns;
+import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -12,11 +14,14 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.textfield.TextInputEditText;
 
+import org.json.JSONObject;
+
 public class LoginActivity extends AppCompatActivity {
 
     private TextInputEditText etLoginEmail, etLoginPassword;
-    private Button btnLogin, btnGoogleSignIn;
-    private TextView tvGoToRegister, tvForgotPassword, tvContinueAnonymous;
+    private Button btnLogin, tvContinueAnonymous;
+    private TextView tvGoToRegister, tvForgotPassword;
+    private ProgressBar progressBar;
     private PreferencesManager preferencesManager;
 
     @Override
@@ -40,7 +45,6 @@ public class LoginActivity extends AppCompatActivity {
         etLoginEmail = findViewById(R.id.etLoginEmail);
         etLoginPassword = findViewById(R.id.etLoginPassword);
         btnLogin = findViewById(R.id.btnLogin);
-        btnGoogleSignIn = findViewById(R.id.btnGoogleSignIn);
         tvGoToRegister = findViewById(R.id.tvGoToRegister);
         tvForgotPassword = findViewById(R.id.tvForgotPassword);
         tvContinueAnonymous = findViewById(R.id.tvContinueAnonymous);
@@ -56,18 +60,14 @@ public class LoginActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Google Sign-In
-        btnGoogleSignIn.setOnClickListener(v -> {
-            performGoogleSignIn();
-        });
-
         // Olvidé contraseña
         tvForgotPassword.setOnClickListener(v -> {
             Toast.makeText(this, "Funcionalidad de recuperacion en desarrollo", Toast.LENGTH_SHORT).show();
         });
 
-        // Continuar sin cuenta
+        // Continuar sin cuenta (modo anónimo)
         tvContinueAnonymous.setOnClickListener(v -> {
+            Toast.makeText(this, "Modo anonimo: No tendras acceso al historial de alertas", Toast.LENGTH_LONG).show();
             goToMainActivity();
         });
     }
@@ -101,30 +101,63 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        // Aquí iría la autenticación con el servidor
-        // Por ahora, simulamos un login exitoso
-        loginUser(email, "Usuario", "email");
-    }
+        // Deshabilitar botón mientras se procesa
+        btnLogin.setEnabled(false);
+        btnLogin.setText("Iniciando sesion...");
 
-    private void performGoogleSignIn() {
-        // Aquí iría la implementación de Google Sign-In
-        // Por ahora mostramos un mensaje
-        Toast.makeText(this, "Google Sign-In en desarrollo", Toast.LENGTH_SHORT).show();
+        // Llamar a la API
+        ApiService.login(email, password, new ApiService.ApiCallback() {
+            @Override
+            public void onSuccess(JSONObject response) {
+                runOnUiThread(() -> {
+                    try {
+                        boolean success = response.getBoolean("success");
 
-        // Simulación de login exitoso con Google
-        // loginUser("usuario@gmail.com", "Usuario Google", "google");
-    }
+                        if (success) {
+                            JSONObject user = response.getJSONObject("user");
+                            String token = response.getString("token");
 
-    private void loginUser(String email, String username, String loginMethod) {
-        // Guardar datos del usuario
-        preferencesManager.setUserLoggedIn(true);
-        preferencesManager.setUserEmail(email);
-        preferencesManager.setUserName(username);
+                            // Guardar datos del usuario
+                            preferencesManager.setUserLoggedIn(true);
+                            preferencesManager.setUserId(user.getInt("id"));
+                            preferencesManager.setUserName(user.getString("nombre"));
+                            preferencesManager.setUserEmail(email);
+                            preferencesManager.setUserToken(token);
+                            preferencesManager.setUserType(user.optString("tipo", ""));
 
-        Toast.makeText(this, "Bienvenido " + username, Toast.LENGTH_SHORT).show();
+                            Toast.makeText(LoginActivity.this,
+                                    "Bienvenido " + user.getString("nombre"),
+                                    Toast.LENGTH_SHORT).show();
 
-        // Ir a MainActivity
-        goToMainActivity();
+                            // Ir a MainActivity
+                            goToMainActivity();
+                        } else {
+                            Toast.makeText(LoginActivity.this,
+                                    "Credenciales incorrectas",
+                                    Toast.LENGTH_SHORT).show();
+                            btnLogin.setEnabled(true);
+                            btnLogin.setText("Iniciar Sesion");
+                        }
+
+                    } catch (Exception e) {
+                        Toast.makeText(LoginActivity.this,
+                                "Error al procesar respuesta",
+                                Toast.LENGTH_SHORT).show();
+                        btnLogin.setEnabled(true);
+                        btnLogin.setText("Iniciar Sesion");
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                runOnUiThread(() -> {
+                    Toast.makeText(LoginActivity.this, error, Toast.LENGTH_SHORT).show();
+                    btnLogin.setEnabled(true);
+                    btnLogin.setText("Iniciar Sesion");
+                });
+            }
+        });
     }
 
     private void goToMainActivity() {

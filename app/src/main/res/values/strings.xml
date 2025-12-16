@@ -38,15 +38,21 @@
     <string name="register_title">Crear Cuenta</string>
     <string name="email_hint">Correo electronico</string>
     <string name="password_hint">Contrasena</string>
-    <string name="username_hint">Nombre de usuario</string>
+    <string name="name_hint">Nombre</string>
     <string name="confirm_password_hint">Confirmar contrasena</string>
     <string name="forgot_password">Olvide mi contrasena</string>
-    <string name="continue_with_google">Continuar con Google</string>
     <string name="continue_anonymous">Continuar sin cuenta</string>
+    <string name="anonymous_warning">Sin cuenta no tendras acceso al historial de alertas</string>
     <string name="no_account">No tienes cuenta?</string>
     <string name="have_account">Ya tienes cuenta?</string>
     <string name="register_here">Registrate aqui</string>
     <string name="login_here">Inicia sesion</string>
-    <string name="accept_terms">Acepto los terminos y condiciones</string>
     <string name="participate_study">Deseo participar en el estudio de investigacion</string>
+
+    <!-- Edit Profile -->
+    <string name="edit_profile">Editar Perfil</string>
+    <string name="update_account">Actualizar Cuenta</string>
+    <string name="change_password">Cambiar Contrasena</string>
+    <string name="current_password">Contrasena actual</string>
+    <string name="new_password">Nueva contrasena</string>
 </resources>
