@@ -15,6 +15,7 @@ public class ApiService {
 
     public interface ApiCallback {
         void onSuccess(JSONObject response);
+
         void onError(String error);
     }
 
@@ -65,10 +66,10 @@ public class ApiService {
 
     // Registro de nuevo usuario
     public static void registerNewUser(String nombre, String correo, String password,
-                                       String confirmPassword, ApiCallback callback) {
+            String confirmPassword, ApiCallback callback) {
         new Thread(() -> {
             try {
-                URL url = new URL(API_BASE + "/usuarios/new");
+                URL url = new URL(API_BASE + "/usuarios/register");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
@@ -88,7 +89,7 @@ public class ApiService {
                 int responseCode = conn.getResponseCode();
 
                 BufferedReader in = new BufferedReader(new InputStreamReader(
-                    responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
                 StringBuilder response = new StringBuilder();
                 String line;
                 while ((line = in.readLine()) != null) {
@@ -168,7 +169,7 @@ public class ApiService {
                 int responseCode = conn.getResponseCode();
 
                 BufferedReader in = new BufferedReader(new InputStreamReader(
-                    responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
                 StringBuilder response = new StringBuilder();
                 String line;
                 while ((line = in.readLine()) != null) {
@@ -196,7 +197,7 @@ public class ApiService {
 
     // Cambiar contraseña
     public static void changePassword(int userId, String currentPassword, String newPassword,
-                                     String token, ApiCallback callback) {
+            String token, ApiCallback callback) {
         new Thread(() -> {
             try {
                 URL url = new URL(API_BASE + "/usuarios/changepassword/" + userId);
@@ -218,7 +219,7 @@ public class ApiService {
                 int responseCode = conn.getResponseCode();
 
                 BufferedReader in = new BufferedReader(new InputStreamReader(
-                    responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
                 StringBuilder response = new StringBuilder();
                 String line;
                 while ((line = in.readLine()) != null) {
