@@ -615,9 +615,9 @@ public class MainActivity extends AppCompatActivity
         boolean isAnonymous = !preferencesManager.isUserLoggedIn();
 
         if (isAnonymous) {
-            userId = 0; // Usuario anónimo genérico
+            userId = 1; // Usuario anónimo genérico
             token = null;
-            Log.d("SESSION", "Usuario ANÓNIMO detectado - usando userId=0");
+            Log.d("SESSION", "Usuario ANÓNIMO detectado - usando userId=1");
         } else {
             userId = preferencesManager.getUserId();
             token = preferencesManager.getUserToken();
@@ -633,19 +633,13 @@ public class MainActivity extends AppCompatActivity
 
     /**
      * Asegura que el dispositivo esté registrado en el backend
+     * El backend maneja la lógica de duplicados: mismo UUID con diferentes usuarios
+     * está permitido,
+     * pero no creará duplicados para la misma combinación UUID+userId
      */
     private void ensureDeviceRegistered(long userId, String token, boolean isAnonymous,
             Runnable onSuccess) {
-        long existingDeviceId = preferencesManager.getDeviceId();
-
-        // Si ya tenemos deviceId y no es anónimo, continuar directamente
-        if (existingDeviceId != -1 && !isAnonymous) {
-            Log.d("SESSION", "Dispositivo ya registrado: " + existingDeviceId);
-            onSuccess.run();
-            return;
-        }
-
-        // Si es anónimo o no tenemos deviceId, registrar/verificar dispositivo
+        // Obtener o generar device_uuid
         String deviceUUID = preferencesManager.getDeviceUUID();
         if (deviceUUID.isEmpty()) {
             deviceUUID = Settings.Secure.getString(
@@ -657,8 +651,17 @@ public class MainActivity extends AppCompatActivity
         String deviceModel = Build.MANUFACTURER + " " + Build.MODEL;
         String androidVersion = Build.VERSION.RELEASE;
 
-        Log.d("SESSION", "Registrando dispositivo - UUID: " + deviceUUID);
+        Log.d("SESSION", String.format(
+                "Verificando/registrando dispositivo - UUID: %s, userId: %d %s",
+                deviceUUID, userId, isAnonymous ? "(ANÓNIMO)" : ""));
 
+        Log.d("SESSION", String.format(
+                "TOKEN: %s", token));
+
+        // Siempre llamar al backend para registrar/verificar
+        // El backend retornará el dispositivo existente si ya está registrado con este
+        // usuario
+        // O creará uno nuevo si es la primera vez que este usuario usa este UUID
         ApiService.registerDevice(userId, deviceUUID, deviceModel, androidVersion, token,
                 new ApiService.ApiCallback() {
                     @Override
@@ -666,10 +669,16 @@ public class MainActivity extends AppCompatActivity
                         try {
                             if (response.getBoolean("success")) {
                                 JSONObject deviceData = response.getJSONObject("data");
-                                long deviceId = deviceData.getLong("id");
+                                long deviceId = deviceData.getLong("id_dispositivo");
+                                String message = response.optString("message", "");
 
                                 preferencesManager.setDeviceId(deviceId);
-                                Log.i("SESSION", "Dispositivo registrado exitosamente: " + deviceId);
+
+                                if (message.contains("existente")) {
+                                    Log.i("SESSION", "Dispositivo existente recuperado: " + deviceId);
+                                } else {
+                                    Log.i("SESSION", "Dispositivo registrado exitosamente: " + deviceId);
+                                }
 
                                 onSuccess.run();
                             }
