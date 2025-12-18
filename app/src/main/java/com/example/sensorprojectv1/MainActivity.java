@@ -29,10 +29,6 @@ import com.google.android.material.navigation.NavigationView;
 
 import org.json.JSONObject;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-
 public class MainActivity extends AppCompatActivity
         implements SensorEventListener, NavigationView.OnNavigationItemSelectedListener {
 
@@ -44,8 +40,6 @@ public class MainActivity extends AppCompatActivity
     private Sensor gyroscopeSensor, accelerometerSensor;
     private float gyroX, gyroY, gyroZ;
     private float accX, accY, accZ;
-
-    private static final String API_URL = "http://192.168.1.80:3001/api/sensor/write";
 
     // Umbrales de varianza para diferentes tipos de caminata
     private static final float WALKING_VARIANCE_SLOW = 0.15f; // Caminata lenta
@@ -182,56 +176,63 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void sendSensorData() {
-        new Thread(() -> {
-            try {
-                URL url = new URL(API_URL);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                conn.setDoOutput(true);
-                conn.setDoInput(true);
+        // Solo enviar datos si hay una sesión activa
+        long sessionId = preferencesManager.getSessionId();
 
-                JSONObject json = new JSONObject();
-                json.put("accX", accX);
-                json.put("accY", accY);
-                json.put("accZ", accZ);
-                json.put("gyroX", gyroX);
-                json.put("gyroY", gyroY);
-                json.put("gyroZ", gyroZ);
+        if (sessionId == -1) {
+            return; // Sin log repetitivo
+        }
 
-                json.put("isWalking", isWalking);
-                json.put("isUsingPhone", isUsingPhone);
-                json.put("isWalkingAndUsingPhone", isWalkingAndUsingPhone);
-                json.put("stepCount", stepCount);
-                json.put("walkingSpeed", walkingSpeed);
-                json.put("variance", currentVariance);
-                json.put("timestamp", System.currentTimeMillis());
+        // Los usuarios anónimos siempre envían datos
+        // Los usuarios registrados pueden optar por no participar
+        if (preferencesManager.isUserLoggedIn() && !preferencesManager.isParticipateEnabled()) {
+            return; // Usuario registrado que no participa
+        }
 
-                json.put("batteryLevel", getBatteryLevel());
-                json.put("batteryStatus", getBatteryStatus());
-                json.put("screenBrightness", getScreenBrightness());
-                json.put("screenOn", isScreenOn());
-                json.put("deviceModel", getDeviceModel());
-                json.put("androidVersion", getAndroidVersion());
+        try {
+            JSONObject json = new JSONObject();
 
-                // Agregar si participa en el estudio
-                json.put("participate", preferencesManager.isParticipateEnabled());
-                json.put("userEmail",
-                        preferencesManager.isUserLoggedIn() ? preferencesManager.getUserEmail() : "anonymous");
+            // Datos de acelerómetro y giroscopio
+            json.put("acc_x", accX);
+            json.put("acc_y", accY);
+            json.put("acc_z", accZ);
+            json.put("gyro_x", gyroX);
+            json.put("gyro_y", gyroY);
+            json.put("gyro_z", gyroZ);
 
-                OutputStream os = conn.getOutputStream();
-                os.write(json.toString().getBytes("UTF-8"));
-                os.close();
+            // Estado de detección
+            json.put("is_walking", isWalking);
+            json.put("is_using_phone", isUsingPhone);
+            json.put("walking_speed", walkingSpeed);
+            json.put("variance", currentVariance);
 
-                int responseCode = conn.getResponseCode();
-                Log.d("HTTP", "Código de respuesta: " + responseCode);
+            // Información del dispositivo
+            json.put("battery_level", getBatteryLevel());
+            json.put("battery_status", getBatteryStatus());
+            json.put("screen_brightness", getScreenBrightness());
+            json.put("screen_on", isScreenOn());
 
-                conn.disconnect();
+            // Timestamp
+            json.put("timestamp", System.currentTimeMillis());
 
-            } catch (Exception e) {
-                Log.e("HTTP_ERROR", e.toString());
-            }
-        }).start();
+            String token = preferencesManager.getUserToken();
+
+            // Usar el nuevo método de ApiService
+            ApiService.sendSensorData(sessionId, json, token, new ApiService.ApiCallback() {
+                @Override
+                public void onSuccess(JSONObject response) {
+                    Log.d("SENSOR_DATA", "Datos enviados exitosamente");
+                }
+
+                @Override
+                public void onError(String error) {
+                    Log.e("SENSOR_DATA", "Error al enviar datos: " + error);
+                }
+            });
+
+        } catch (Exception e) {
+            Log.e("SENSOR_DATA", "Error al preparar datos: " + e.toString());
+        }
     }
 
     @Override
@@ -559,30 +560,31 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void sendAlertToServer() {
-        new Thread(() -> {
-            try {
-                URL url = new URL(API_URL.replace("/write", "/alert"));
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                conn.setDoOutput(true);
+        // Solo enviar alerta si hay una sesión activa
+        long sessionId = preferencesManager.getSessionId();
 
-                JSONObject json = new JSONObject();
-                json.put("alert", "WALKING_AND_PHONE_USE");
-                json.put("timestamp", System.currentTimeMillis());
-                json.put("isActive", isWalkingAndUsingPhone);
+        if (sessionId == -1) {
+            Log.d("ALERT", "No hay sesión activa - no se envía alerta");
+            return;
+        }
 
-                OutputStream os = conn.getOutputStream();
-                os.write(json.toString().getBytes("UTF-8"));
-                os.close();
+        String token = preferencesManager.getUserToken();
+        String tipoEvento = "ALERTA_CAMINAR_TELEFONO";
+        String descripcion = String.format(
+                "Alerta: Usuario caminando (%s) mientras usa el teléfono. Varianza: %.3f",
+                walkingSpeed, currentVariance);
 
-                conn.getResponseCode();
-                conn.disconnect();
-
-            } catch (Exception e) {
-                Log.e("ALERT_ERROR", e.toString());
+        ApiService.sendEvento(sessionId, tipoEvento, descripcion, token, new ApiService.ApiCallback() {
+            @Override
+            public void onSuccess(JSONObject response) {
+                Log.i("ALERT", "Alerta enviada exitosamente al servidor");
             }
-        }).start();
+
+            @Override
+            public void onError(String error) {
+                Log.e("ALERT", "Error al enviar alerta: " + error);
+            }
+        });
     }
 
     public int getStepCount() {
@@ -594,34 +596,111 @@ public class MainActivity extends AppCompatActivity
     }
 
     /**
-     * Inicializa o recupera la sesión actual
+     * Inicializa o recupera la sesión actual (usuarios registrados y anónimos)
      */
     private void initializeSession() {
-        // Solo iniciar sesión si el usuario está logueado
-        if (!preferencesManager.isUserLoggedIn()) {
-            Log.d("SESSION", "Usuario anónimo - no se iniciará sesión");
-            return;
-        }
+        Log.d("SESSION", "=== INICIANDO PROCESO DE SESIÓN ===");
 
         long existingSessionId = preferencesManager.getSessionId();
 
         // Si ya hay una sesión activa, usarla
         if (existingSessionId != -1) {
-            Log.d("SESSION", "Sesión existente recuperada: " + existingSessionId);
+            Log.i("SESSION", "Sesión existente recuperada: " + existingSessionId);
             return;
         }
 
-        // Crear nueva sesión
-        long userId = preferencesManager.getUserId();
+        // Determinar userId: 0 para anónimo, userId real para registrados
+        long userId;
+        String token;
+        boolean isAnonymous = !preferencesManager.isUserLoggedIn();
+
+        if (isAnonymous) {
+            userId = 0; // Usuario anónimo genérico
+            token = null;
+            Log.d("SESSION", "Usuario ANÓNIMO detectado - usando userId=0");
+        } else {
+            userId = preferencesManager.getUserId();
+            token = preferencesManager.getUserToken();
+            Log.d("SESSION", "Usuario REGISTRADO detectado - userId=" + userId);
+        }
+
+        // Verificar/registrar dispositivo primero
+        ensureDeviceRegistered(userId, token, isAnonymous, () -> {
+            // Una vez registrado el dispositivo, crear sesión
+            createNewSession(userId, token, isAnonymous);
+        });
+    }
+
+    /**
+     * Asegura que el dispositivo esté registrado en el backend
+     */
+    private void ensureDeviceRegistered(long userId, String token, boolean isAnonymous,
+            Runnable onSuccess) {
+        long existingDeviceId = preferencesManager.getDeviceId();
+
+        // Si ya tenemos deviceId y no es anónimo, continuar directamente
+        if (existingDeviceId != -1 && !isAnonymous) {
+            Log.d("SESSION", "Dispositivo ya registrado: " + existingDeviceId);
+            onSuccess.run();
+            return;
+        }
+
+        // Si es anónimo o no tenemos deviceId, registrar/verificar dispositivo
+        String deviceUUID = preferencesManager.getDeviceUUID();
+        if (deviceUUID.isEmpty()) {
+            deviceUUID = Settings.Secure.getString(
+                    getContentResolver(),
+                    Settings.Secure.ANDROID_ID);
+            preferencesManager.setDeviceUUID(deviceUUID);
+        }
+
+        String deviceModel = Build.MANUFACTURER + " " + Build.MODEL;
+        String androidVersion = Build.VERSION.RELEASE;
+
+        Log.d("SESSION", "Registrando dispositivo - UUID: " + deviceUUID);
+
+        ApiService.registerDevice(userId, deviceUUID, deviceModel, androidVersion, token,
+                new ApiService.ApiCallback() {
+                    @Override
+                    public void onSuccess(JSONObject response) {
+                        try {
+                            if (response.getBoolean("success")) {
+                                JSONObject deviceData = response.getJSONObject("data");
+                                long deviceId = deviceData.getLong("id");
+
+                                preferencesManager.setDeviceId(deviceId);
+                                Log.i("SESSION", "Dispositivo registrado exitosamente: " + deviceId);
+
+                                onSuccess.run();
+                            }
+                        } catch (Exception e) {
+                            Log.e("SESSION", "Error al procesar dispositivo: " + e.toString());
+                        }
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        Log.e("SESSION", "Error al registrar dispositivo: " + error);
+                    }
+                });
+    }
+
+    /**
+     * Crea una nueva sesión en el backend
+     */
+    private void createNewSession(long userId, String token, boolean isAnonymous) {
         long deviceId = preferencesManager.getDeviceId();
-        String token = preferencesManager.getUserToken();
 
-        if (userId == -1 || deviceId == -1) {
-            Log.e("SESSION", "No se puede iniciar sesión: falta userId o deviceId");
+        if (deviceId == -1) {
+            Log.e("SESSION", "No se puede iniciar sesión: falta deviceId");
             return;
         }
 
-        String contexto = "app_start";
+        String contexto = isAnonymous ? "app_start_anonymous" : "app_start";
+
+        Log.d("SESSION", String.format(
+                "Creando sesión - userId: %d, deviceId: %d, contexto: %s",
+                userId, deviceId, contexto));
 
         ApiService.startSession(userId, deviceId, contexto, token, new ApiService.ApiCallback() {
             @Override
@@ -635,7 +714,9 @@ public class MainActivity extends AppCompatActivity
                         preferencesManager.setSessionId(sessionId);
                         preferencesManager.setSessionStart(System.currentTimeMillis());
 
-                        Log.i("SESSION", "Sesión iniciada exitosamente: " + sessionId);
+                        Log.i("SESSION", String.format(
+                                "✓ Sesión iniciada exitosamente: %d (Usuario: %s)",
+                                sessionId, isAnonymous ? "ANÓNIMO" : "REGISTRADO"));
                     }
                 } catch (Exception e) {
                     Log.e("SESSION", "Error al procesar respuesta de sesión: " + e.toString());
@@ -644,7 +725,7 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void onError(String error) {
-                Log.e("SESSION", "Error al iniciar sesión: " + error);
+                Log.e("SESSION", "✗ Error al iniciar sesión: " + error);
             }
         });
     }

@@ -204,7 +204,12 @@ public class ApiService {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                conn.setRequestProperty("Authorization", "Bearer " + token);
+
+                // Solo agregar token si no es usuario anónimo
+                if (token != null && !token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
+
                 conn.setDoOutput(true);
                 conn.setDoInput(true);
 
@@ -256,7 +261,12 @@ public class ApiService {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                conn.setRequestProperty("Authorization", "Bearer " + token);
+
+                // Solo agregar token si no es usuario anónimo
+                if (token != null && !token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
+
                 conn.setDoOutput(true);
                 conn.setDoInput(true);
 
@@ -387,6 +397,158 @@ public class ApiService {
 
             } catch (Exception e) {
                 Log.e("API_CHANGE_PASS", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Enviar datos de sensores individuales
+    public static void sendSensorData(long sessionId, JSONObject sensorData, String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/sensordata");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                // Agregar id_sesion a los datos
+                sensorData.put("id_sesion", sessionId);
+
+                OutputStream os = conn.getOutputStream();
+                os.write(sensorData.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al enviar datos de sensores");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_SENSOR_DATA", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Enviar lote de datos de sensores (batch)
+    public static void sendSensorDataBatch(long sessionId, org.json.JSONArray sensorDataArray,
+            String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/sensordata/batch");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                // Agregar id_sesion a cada elemento del array
+                for (int i = 0; i < sensorDataArray.length(); i++) {
+                    JSONObject item = sensorDataArray.getJSONObject(i);
+                    item.put("id_sesion", sessionId);
+                }
+
+                OutputStream os = conn.getOutputStream();
+                os.write(sensorDataArray.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al enviar lote de datos");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_SENSOR_BATCH", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Enviar evento/alerta
+    public static void sendEvento(long sessionId, String tipoEvento, String descripcion,
+            String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/eventos");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                JSONObject json = new JSONObject();
+                json.put("id_sesion", sessionId);
+                json.put("tipo_evento", tipoEvento);
+                json.put("descripcion", descripcion);
+                json.put("timestamp", System.currentTimeMillis());
+
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al enviar evento");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_EVENTO", "Error: " + e.toString());
                 callback.onError("Error al conectar con el servidor");
             }
         }).start();
