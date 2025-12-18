@@ -553,4 +553,64 @@ public class ApiService {
             }
         }).start();
     }
+
+    // Enviar alerta (nuevo sistema de alertas)
+    public static void sendAlerta(long sessionId, long userId, String tipoAlerta, String severidad,
+            String descripcion, JSONObject contexto, long detectedAt, String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/alertas");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+                // Solo agregar token si no es usuario anónimo
+                if (token != null && !token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
+
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                JSONObject json = new JSONObject();
+                json.put("id_sesion", sessionId);
+                json.put("id_usuario", userId);
+                json.put("tipo_alerta", tipoAlerta);
+                json.put("severidad", severidad);
+                json.put("descripcion", descripcion);
+                json.put("contexto", contexto);
+                json.put("detected_at", detectedAt);
+
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al enviar alerta");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_ALERTA", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
 }

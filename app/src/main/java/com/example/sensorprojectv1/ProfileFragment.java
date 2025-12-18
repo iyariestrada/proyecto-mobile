@@ -93,7 +93,35 @@ public class ProfileFragment extends Fragment {
     }
 
     private void performLogout() {
-        // Limpiar datos del usuario
+        // Finalizar sesión en el servidor antes de limpiar datos locales
+        long sessionId = preferencesManager.getSessionId();
+        String token = preferencesManager.getUserToken();
+
+        if (sessionId != -1) {
+            // Finalizar sesión en el servidor
+            ApiService.endSession(sessionId, token, new ApiService.ApiCallback() {
+                @Override
+                public void onSuccess(org.json.JSONObject response) {
+                    // Sesión finalizada exitosamente en el servidor
+                    android.util.Log.i("LOGOUT", "Sesión finalizada en el servidor");
+                    completeLogout();
+                }
+
+                @Override
+                public void onError(String error) {
+                    // Aunque falle, continuar con el logout local
+                    android.util.Log.e("LOGOUT", "Error al finalizar sesión: " + error);
+                    completeLogout();
+                }
+            });
+        } else {
+            // No hay sesión activa, proceder con logout local
+            completeLogout();
+        }
+    }
+
+    private void completeLogout() {
+        // Limpiar datos del usuario localmente
         preferencesManager.logout();
 
         Toast.makeText(requireContext(), "Sesion cerrada", Toast.LENGTH_SHORT).show();

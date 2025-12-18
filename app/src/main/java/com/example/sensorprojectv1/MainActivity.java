@@ -570,26 +570,74 @@ public class MainActivity extends AppCompatActivity
             return;
         }
 
-        try{
-            
+        try {
+            long userId = preferencesManager.getUserId();
+            if (userId == -1) {
+                userId = 1; // Usuario anónimo
+            }
+
+            String token = preferencesManager.getUserToken();
+
+            // Determinar severidad según velocidad de caminata
+            String severidad = calculateSeverity(walkingSpeed);
+
+            // Determinar tipo de alerta
+            String tipoAlerta = "walking_using_phone";
+
+            // Descripción legible
+            String descripcion = String.format(
+                    "Usuario detectado caminando a velocidad %s mientras usa el teléfono",
+                    walkingSpeed.toLowerCase());
+
+            // Crear contexto JSON con información adicional
+            JSONObject contexto = new JSONObject();
+            contexto.put("walking_speed", walkingSpeed);
+            contexto.put("variance", currentVariance);
+            contexto.put("step_count", stepCount);
+            contexto.put("battery_level", getBatteryLevel());
+            contexto.put("screen_brightness", getScreenBrightness());
+            contexto.put("alert_number", totalAlerts);
+
+            // Timestamp de detección
+            long detectedAt = System.currentTimeMillis();
+
+            Log.d("ALERT", String.format(
+                    "Enviando alerta - Tipo: %s, Severidad: %s, Velocidad: %s",
+                    tipoAlerta, severidad, walkingSpeed));
+
+            ApiService.sendAlerta(sessionId, userId, tipoAlerta, severidad,
+                    descripcion, contexto, detectedAt, token, new ApiService.ApiCallback() {
+                        @Override
+                        public void onSuccess(JSONObject response) {
+                            Log.i("ALERT", "Alerta enviada exitosamente al servidor");
+                        }
+
+                        @Override
+                        public void onError(String error) {
+                            Log.e("ALERT", "Error al enviar alerta: " + error);
+                        }
+                    });
+
+        } catch (Exception e) {
+            Log.e("ALERT", "Error al preparar alerta: " + e.toString());
         }
-        String token = preferencesManager.getUserToken();
-        String tipoEvento = "ALERTA_CAMINAR_TELEFONO";
-        String descripcion = String.format(
-                "Alerta: Usuario caminando (%s) mientras usa el teléfono. Varianza: %.3f",
-                walkingSpeed, currentVariance);
+    }
 
-        ApiService.sendEvento(sessionId, tipoEvento, descripcion, token, new ApiService.ApiCallback() {
-            @Override
-            public void onSuccess(JSONObject response) {
-                Log.i("ALERT", "Alerta enviada exitosamente al servidor");
-            }
-
-            @Override
-            public void onError(String error) {
-                Log.e("ALERT", "Error al enviar alerta: " + error);
-            }
-        });
+    /**
+     * Calcula la severidad de la alerta según la velocidad de caminata
+     * Lenta -> baja, Normal -> media, Rápida -> alta
+     */
+    private String calculateSeverity(String walkingSpeed) {
+        switch (walkingSpeed) {
+            case "Lenta":
+                return "baja";
+            case "Normal":
+                return "media";
+            case "Rapida":
+                return "alta";
+            default:
+                return "baja";
+        }
     }
 
     public int getStepCount() {
@@ -747,17 +795,29 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
+    private boolean isFinalizingSession = false;
+
     /**
      * Finaliza la sesión actual si existe
+     * Evita múltiples llamadas simultáneas
      */
     private void finalizeSession() {
+        // Evitar múltiples llamadas simultáneas
+        if (isFinalizingSession) {
+            Log.d("SESSION", "Ya se está finalizando la sesión, ignorando llamada duplicada");
+            return;
+        }
+
         long sessionId = preferencesManager.getSessionId();
+
+        Log.i("SESSION", "FINALIZE START - ID: " + sessionId);
 
         if (sessionId == -1) {
             Log.d("SESSION", "No hay sesión activa para finalizar");
             return;
         }
 
+        isFinalizingSession = true;
         String token = preferencesManager.getUserToken();
 
         ApiService.endSession(sessionId, token, new ApiService.ApiCallback() {
@@ -773,6 +833,8 @@ public class MainActivity extends AppCompatActivity
                     }
                 } catch (Exception e) {
                     Log.e("SESSION", "Error al procesar fin de sesión: " + e.toString());
+                } finally {
+                    isFinalizingSession = false;
                 }
             }
 
@@ -782,15 +844,33 @@ public class MainActivity extends AppCompatActivity
                 // Aunque falle, limpiar el ID local
                 preferencesManager.setSessionId(-1);
                 preferencesManager.setSessionStart(0);
+                isFinalizingSession = false;
             }
         });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Guardar estado pero mantener sesión activa
+        Log.d("LIFECYCLE", "MainActivity onPause - sesión se mantiene activa");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // La app está en segundo plano pero la sesión sigue activa
+        Log.d("LIFECYCLE", "MainActivity onStop - sesión se mantiene activa");
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
+        Log.d("LIFECYCLE", "MainActivity onDestroy - finalizando sesión");
+
         // Finalizar sesión antes de destruir la actividad
+        // El flag isFinalizingSession previene llamadas duplicadas
         finalizeSession();
 
         sensorManager.unregisterListener(this);
