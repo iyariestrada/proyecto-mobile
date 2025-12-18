@@ -179,6 +179,7 @@ public class MainActivity extends AppCompatActivity
         // Solo enviar datos si hay una sesión activa
         long sessionId = preferencesManager.getSessionId();
 
+        Log.d("SENSOR_DATA", "Preparando para enviar datos - Sesión ID: " + sessionId);
         if (sessionId == -1) {
             return; // Sin log repetitivo
         }
@@ -200,6 +201,8 @@ public class MainActivity extends AppCompatActivity
             json.put("gyro_y", gyroY);
             json.put("gyro_z", gyroZ);
 
+            json.put("step_count", stepCount);
+
             // Estado de detección
             json.put("is_walking", isWalking);
             json.put("is_using_phone", isUsingPhone);
@@ -213,11 +216,10 @@ public class MainActivity extends AppCompatActivity
             json.put("screen_on", isScreenOn());
 
             // Timestamp
-            json.put("timestamp", System.currentTimeMillis());
+            json.put("recorded_at", System.currentTimeMillis());
 
             String token = preferencesManager.getUserToken();
 
-            // Usar el nuevo método de ApiService
             ApiService.sendSensorData(sessionId, json, token, new ApiService.ApiCallback() {
                 @Override
                 public void onSuccess(JSONObject response) {
@@ -568,6 +570,9 @@ public class MainActivity extends AppCompatActivity
             return;
         }
 
+        try{
+            
+        }
         String token = preferencesManager.getUserToken();
         String tipoEvento = "ALERTA_CAMINAR_TELEFONO";
         String descripcion = String.format(
@@ -609,7 +614,7 @@ public class MainActivity extends AppCompatActivity
             return;
         }
 
-        // Determinar userId: 0 para anónimo, userId real para registrados
+        // Determinar userId: 1 para anónimo, userId real para registrados
         long userId;
         String token;
         boolean isAnonymous = !preferencesManager.isUserLoggedIn();
@@ -715,16 +720,19 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onSuccess(JSONObject response) {
                 try {
+                    Log.d("SESSION", "RESPUESTA SESIÓN: " + response.toString());
                     if (response.getBoolean("success")) {
                         JSONObject sessionData = response.getJSONObject("data");
-                        long sessionId = sessionData.getLong("id");
+                        long sessionId = sessionData.getLong("id_sesion");
+
+                        Log.d("SESSION", "Sesión creada exitosamente: " + sessionId);
 
                         // Guardar ID de sesión
                         preferencesManager.setSessionId(sessionId);
                         preferencesManager.setSessionStart(System.currentTimeMillis());
 
                         Log.i("SESSION", String.format(
-                                "✓ Sesión iniciada exitosamente: %d (Usuario: %s)",
+                                "Sesión iniciada exitosamente: %d (Usuario: %s)",
                                 sessionId, isAnonymous ? "ANÓNIMO" : "REGISTRADO"));
                     }
                 } catch (Exception e) {
@@ -734,7 +742,7 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void onError(String error) {
-                Log.e("SESSION", "✗ Error al iniciar sesión: " + error);
+                Log.e("SESSION", "Error al iniciar sesión: " + error);
             }
         });
     }
