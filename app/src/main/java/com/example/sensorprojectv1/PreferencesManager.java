@@ -14,6 +14,10 @@ public class PreferencesManager {
     private static final String KEY_USER_EMAIL = "user_email";
     private static final String KEY_USER_TOKEN = "user_token";
     private static final String KEY_USER_TYPE = "user_type";
+    private static final String KEY_DEVICE_ID = "device_id";
+    private static final String KEY_DEVICE_UUID = "device_uuid";
+    private static final String KEY_SESSION_ID = "session_id";
+    private static final String KEY_SESSION_START = "session_start";
 
     private SharedPreferences preferences;
 
@@ -97,6 +101,38 @@ public class PreferencesManager {
         return preferences.getString(KEY_USER_TYPE, "");
     }
 
+    public void setDeviceId(long id) {
+        preferences.edit().putLong(KEY_DEVICE_ID, id).apply();
+    }
+
+    public long getDeviceId() {
+        return preferences.getLong(KEY_DEVICE_ID, -1);
+    }
+
+    public void setDeviceUUID(String uuid) {
+        preferences.edit().putString(KEY_DEVICE_UUID, uuid).apply();
+    }
+
+    public String getDeviceUUID() {
+        return preferences.getString(KEY_DEVICE_UUID, "");
+    }
+
+    public void setSessionId(long id) {
+        preferences.edit().putLong(KEY_SESSION_ID, id).apply();
+    }
+
+    public long getSessionId() {
+        return preferences.getLong(KEY_SESSION_ID, -1);
+    }
+
+    public void setSessionStart(long timestamp) {
+        preferences.edit().putLong(KEY_SESSION_START, timestamp).apply();
+    }
+
+    public long getSessionStart() {
+        return preferences.getLong(KEY_SESSION_START, 0);
+    }
+
     public void logout() {
         preferences.edit()
                 .putBoolean(KEY_USER_LOGGED_IN, false)
@@ -105,6 +141,8 @@ public class PreferencesManager {
                 .putString(KEY_USER_EMAIL, "")
                 .putString(KEY_USER_TOKEN, "")
                 .putString(KEY_USER_TYPE, "")
+                .putLong(KEY_SESSION_ID, -1)
+                .putLong(KEY_SESSION_START, 0)
                 .apply();
     }
 }

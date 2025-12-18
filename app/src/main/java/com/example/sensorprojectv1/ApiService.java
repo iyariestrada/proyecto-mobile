@@ -195,12 +195,157 @@ public class ApiService {
         }).start();
     }
 
-    // Cambiar contraseña
-    public static void changePassword(int userId, String currentPassword, String newPassword,
+    // Registrar o actualizar dispositivo
+    public static void registerDevice(long userId, String deviceUUID, String deviceModel,
+            String androidVersion, String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/dispositivos/register");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                JSONObject json = new JSONObject();
+                json.put("id_usuario", userId);
+                json.put("device_uuid", deviceUUID);
+                json.put("device_model", deviceModel);
+                json.put("android_version", androidVersion);
+
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al registrar dispositivo");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_REGISTER_DEVICE", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Iniciar nueva sesión
+    public static void startSession(long userId, long deviceId, String contexto,
             String token, ApiCallback callback) {
         new Thread(() -> {
             try {
-                URL url = new URL(API_BASE + "/usuarios/changepassword/" + userId);
+                URL url = new URL(API_BASE + "/sesiones/start");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                JSONObject json = new JSONObject();
+                json.put("id_usuario", userId);
+                json.put("id_dispositivo", deviceId);
+                json.put("contexto", contexto);
+                // El start_time se asigna automáticamente en el backend
+
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al iniciar sesión");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_START_SESSION", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Finalizar sesión
+    public static void endSession(long sessionId, String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/sesiones/" + sessionId + "/finalizar");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("PUT");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al finalizar sesión");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_END_SESSION", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Cambiar contraseña
+    public static void changePassword(String userEmail, String currentPassword, String newPassword,
+            String confirmPassword,
+            String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/usuarios/changepassword/" + userEmail);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("PUT");
                 conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
@@ -209,8 +354,10 @@ public class ApiService {
                 conn.setDoInput(true);
 
                 JSONObject json = new JSONObject();
+                json.put("correo", userEmail);
                 json.put("currentPassword", currentPassword);
                 json.put("newPassword", newPassword);
+                json.put("confirmPassword", confirmPassword);
 
                 OutputStream os = conn.getOutputStream();
                 os.write(json.toString().getBytes("UTF-8"));

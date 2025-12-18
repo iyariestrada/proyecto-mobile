@@ -48,7 +48,7 @@ public class MainActivity extends AppCompatActivity
     private static final String API_URL = "http://192.168.1.80:3001/api/sensor/write";
 
     // Umbrales de varianza para diferentes tipos de caminata
-    private static final float WALKING_VARIANCE_SLOW = 0.3f; // Caminata lenta
+    private static final float WALKING_VARIANCE_SLOW = 0.15f; // Caminata lenta
     private static final float WALKING_VARIANCE_NORMAL = 0.6f; // Caminata normal
     private static final float WALKING_VARIANCE_FAST = 1.2f; // Caminata rápida
 
@@ -84,6 +84,9 @@ public class MainActivity extends AppCompatActivity
 
         // Inicializar PreferencesManager
         preferencesManager = new PreferencesManager(this);
+
+        // Iniciar sesión al abrir la app
+        initializeSession();
 
         // Configurar Toolbar
         toolbar = findViewById(R.id.toolbar);
@@ -590,9 +593,108 @@ public class MainActivity extends AppCompatActivity
         return totalAlerts;
     }
 
+    /**
+     * Inicializa o recupera la sesión actual
+     */
+    private void initializeSession() {
+        // Solo iniciar sesión si el usuario está logueado
+        if (!preferencesManager.isUserLoggedIn()) {
+            Log.d("SESSION", "Usuario anónimo - no se iniciará sesión");
+            return;
+        }
+
+        long existingSessionId = preferencesManager.getSessionId();
+
+        // Si ya hay una sesión activa, usarla
+        if (existingSessionId != -1) {
+            Log.d("SESSION", "Sesión existente recuperada: " + existingSessionId);
+            return;
+        }
+
+        // Crear nueva sesión
+        long userId = preferencesManager.getUserId();
+        long deviceId = preferencesManager.getDeviceId();
+        String token = preferencesManager.getUserToken();
+
+        if (userId == -1 || deviceId == -1) {
+            Log.e("SESSION", "No se puede iniciar sesión: falta userId o deviceId");
+            return;
+        }
+
+        String contexto = "app_start";
+
+        ApiService.startSession(userId, deviceId, contexto, token, new ApiService.ApiCallback() {
+            @Override
+            public void onSuccess(JSONObject response) {
+                try {
+                    if (response.getBoolean("success")) {
+                        JSONObject sessionData = response.getJSONObject("data");
+                        long sessionId = sessionData.getLong("id");
+
+                        // Guardar ID de sesión
+                        preferencesManager.setSessionId(sessionId);
+                        preferencesManager.setSessionStart(System.currentTimeMillis());
+
+                        Log.i("SESSION", "Sesión iniciada exitosamente: " + sessionId);
+                    }
+                } catch (Exception e) {
+                    Log.e("SESSION", "Error al procesar respuesta de sesión: " + e.toString());
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e("SESSION", "Error al iniciar sesión: " + error);
+            }
+        });
+    }
+
+    /**
+     * Finaliza la sesión actual si existe
+     */
+    private void finalizeSession() {
+        long sessionId = preferencesManager.getSessionId();
+
+        if (sessionId == -1) {
+            Log.d("SESSION", "No hay sesión activa para finalizar");
+            return;
+        }
+
+        String token = preferencesManager.getUserToken();
+
+        ApiService.endSession(sessionId, token, new ApiService.ApiCallback() {
+            @Override
+            public void onSuccess(JSONObject response) {
+                try {
+                    if (response.getBoolean("success")) {
+                        Log.i("SESSION", "Sesión finalizada exitosamente: " + sessionId);
+
+                        // Limpiar datos de sesión
+                        preferencesManager.setSessionId(-1);
+                        preferencesManager.setSessionStart(0);
+                    }
+                } catch (Exception e) {
+                    Log.e("SESSION", "Error al procesar fin de sesión: " + e.toString());
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e("SESSION", "Error al finalizar sesión: " + error);
+                // Aunque falle, limpiar el ID local
+                preferencesManager.setSessionId(-1);
+                preferencesManager.setSessionStart(0);
+            }
+        });
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        // Finalizar sesión antes de destruir la actividad
+        finalizeSession();
+
         sensorManager.unregisterListener(this);
         if (alertSound != null) {
             alertSound.release();

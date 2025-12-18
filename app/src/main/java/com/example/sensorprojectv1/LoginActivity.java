@@ -129,8 +129,10 @@ public class LoginActivity extends AppCompatActivity {
                                     "Bienvenido " + user.getString("nombre"),
                                     Toast.LENGTH_SHORT).show();
 
-                            // Ir a MainActivity
-                            goToMainActivity();
+                            // Registrar dispositivo antes de ir a MainActivity
+                            registerDeviceAndGoToMain(token);
+                            
+
                         } else {
                             Toast.makeText(LoginActivity.this,
                                     "Credenciales incorrectas",
@@ -158,6 +160,63 @@ public class LoginActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    private void registerDeviceAndGoToMain(String token) {
+        // Obtener información del dispositivo
+        String deviceUUID = preferencesManager.getDeviceUUID();
+        if (deviceUUID.isEmpty()) {
+            deviceUUID = android.provider.Settings.Secure.getString(
+                getContentResolver(),
+                android.provider.Settings.Secure.ANDROID_ID
+            );
+            preferencesManager.setDeviceUUID(deviceUUID);
+        }
+
+        String deviceModel = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
+        String androidVersion = android.os.Build.VERSION.RELEASE;
+        long userId = preferencesManager.getUserId();
+
+        ApiService.registerDevice(userId, deviceUUID, deviceModel, androidVersion, token,
+            new ApiService.ApiCallback() {
+                @Override
+                public void onSuccess(JSONObject response) {
+                    runOnUiThread(() -> {
+                        try {
+                            if (response.getBoolean("success")) {
+                                JSONObject deviceData = response.getJSONObject("data");
+                                long deviceId = deviceData.getLong("id");
+
+                                // Guardar ID del dispositivo
+                                preferencesManager.setDeviceId(deviceId);
+
+                                // Ahora sí ir a MainActivity (que iniciará la sesión automáticamente)
+                                goToMainActivity();
+                            } else {
+                                Toast.makeText(LoginActivity.this,
+                                    "Error al registrar dispositivo",
+                                    Toast.LENGTH_SHORT).show();
+                                goToMainActivity();
+                            }
+                        } catch (Exception e) {
+                            Toast.makeText(LoginActivity.this,
+                                "Error al procesar dispositivo",
+                                Toast.LENGTH_SHORT).show();
+                            goToMainActivity();
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String error) {
+                    runOnUiThread(() -> {
+                        Toast.makeText(LoginActivity.this,
+                            "Advertencia: " + error,
+                            Toast.LENGTH_SHORT).show();
+                        goToMainActivity();
+                    });
+                }
+            });
     }
 
     private void goToMainActivity() {

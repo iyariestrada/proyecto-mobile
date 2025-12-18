@@ -140,6 +140,7 @@ public class EditProfileActivity extends AppCompatActivity {
         String currentPassword = etCurrentPassword.getText().toString().trim();
         String newPassword = etNewPassword.getText().toString().trim();
         String confirmPassword = etConfirmNewPassword.getText().toString().trim();
+        String email = etEditEmail.getText().toString().trim();
 
         // Validaciones
         if (TextUtils.isEmpty(currentPassword)) {
@@ -178,7 +179,7 @@ public class EditProfileActivity extends AppCompatActivity {
         int userId = preferencesManager.getUserId();
         String token = preferencesManager.getUserToken();
 
-        ApiService.changePassword(userId, currentPassword, newPassword, token, new ApiService.ApiCallback() {
+        ApiService.changePassword(email, currentPassword, newPassword, confirmPassword, token, new ApiService.ApiCallback() {
             @Override
             public void onSuccess(JSONObject response) {
                 runOnUiThread(() -> {
