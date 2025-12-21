@@ -48,7 +48,7 @@ public class ProfileFragment extends Fragment {
         btnProfileLogin.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(), LoginActivity.class);
             startActivity(intent);
-            requireActivity().finish();
+            // NO cerrar MainActivity - el usuario volverá aquí después del login
         });
 
         // Listener del botón editar perfil
@@ -121,16 +121,31 @@ public class ProfileFragment extends Fragment {
     }
 
     private void completeLogout() {
-        // Limpiar datos del usuario localmente
-        preferencesManager.logout();
+        // Asegurar que todo se ejecute en el thread principal
+        if (getActivity() == null) return;
 
-        Toast.makeText(requireContext(), "Sesion cerrada", Toast.LENGTH_SHORT).show();
+        getActivity().runOnUiThread(() -> {
+            // Detener mediciones de sensores si es MainActivity
+            if (getActivity() instanceof MainActivity) {
+                MainActivity mainActivity = (MainActivity) getActivity();
+                mainActivity.stopSensorMeasurements();
+            }
 
-        // Ir a LoginActivity
-        Intent intent = new Intent(requireContext(), LoginActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        requireActivity().finish();
+            // Limpiar datos del usuario localmente
+            preferencesManager.logout();
+
+            Toast.makeText(requireContext(), "Sesión cerrada", Toast.LENGTH_SHORT).show();
+
+            // Redirigir a LoginActivity
+            Intent intent = new Intent(requireContext(), LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+
+            // Finalizar MainActivity
+            if (getActivity() != null) {
+                getActivity().finish();
+            }
+        });
     }
 
     @Override

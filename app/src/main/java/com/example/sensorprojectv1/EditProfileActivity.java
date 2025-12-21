@@ -89,10 +89,10 @@ public class EditProfileActivity extends AppCompatActivity {
         btnUpdateAccount.setEnabled(false);
         btnUpdateAccount.setText("Actualizando...");
 
-        int userId = preferencesManager.getUserId();
+        String correoActual = preferencesManager.getUserEmail();
         String token = preferencesManager.getUserToken();
 
-        ApiService.updateUser(userId, name, email, token, new ApiService.ApiCallback() {
+        ApiService.updateUser(correoActual, name, email, token, new ApiService.ApiCallback() {
             @Override
             public void onSuccess(JSONObject response) {
                 runOnUiThread(() -> {
@@ -155,8 +155,9 @@ public class EditProfileActivity extends AppCompatActivity {
             return;
         }
 
-        if (newPassword.length() < 6) {
-            etNewPassword.setError("La contrasena debe tener al menos 6 caracteres");
+        if (!isStrongPassword(newPassword)) {
+            etNewPassword.setError(
+                    "La contrasena debe tener al menos 8 caracteres, una mayuscula, una minuscula, un numero y un caracter especial");
             etNewPassword.requestFocus();
             return;
         }
@@ -179,47 +180,71 @@ public class EditProfileActivity extends AppCompatActivity {
         int userId = preferencesManager.getUserId();
         String token = preferencesManager.getUserToken();
 
-        ApiService.changePassword(email, currentPassword, newPassword, confirmPassword, token, new ApiService.ApiCallback() {
-            @Override
-            public void onSuccess(JSONObject response) {
-                runOnUiThread(() -> {
-                    try {
-                        boolean success = response.getBoolean("success");
+        ApiService.changePassword(email, currentPassword, newPassword, confirmPassword, token,
+                new ApiService.ApiCallback() {
+                    @Override
+                    public void onSuccess(JSONObject response) {
+                        runOnUiThread(() -> {
+                            try {
+                                boolean success = response.getBoolean("success");
 
-                        if (success) {
-                            Toast.makeText(EditProfileActivity.this,
-                                    "Contrasena cambiada exitosamente",
-                                    Toast.LENGTH_SHORT).show();
+                                if (success) {
+                                    Toast.makeText(EditProfileActivity.this,
+                                            "Contrasena cambiada exitosamente",
+                                            Toast.LENGTH_SHORT).show();
 
-                            // Limpiar campos
-                            etCurrentPassword.setText("");
-                            etNewPassword.setText("");
-                            etConfirmNewPassword.setText("");
-                        } else {
-                            String errorMsg = response.optString("message", "Error al cambiar contrasena");
-                            Toast.makeText(EditProfileActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
-                        }
+                                    // Limpiar campos
+                                    etCurrentPassword.setText("");
+                                    etNewPassword.setText("");
+                                    etConfirmNewPassword.setText("");
+                                } else {
+                                    String errorMsg = response.optString("message", "Error al cambiar contrasena");
+                                    Toast.makeText(EditProfileActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                                }
 
-                    } catch (Exception e) {
-                        Toast.makeText(EditProfileActivity.this,
-                                "Error al procesar respuesta",
-                                Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                Toast.makeText(EditProfileActivity.this,
+                                        "Error al procesar respuesta",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+
+                            btnChangePassword.setEnabled(true);
+                            btnChangePassword.setText("Cambiar Contrasena");
+                        });
                     }
 
-                    btnChangePassword.setEnabled(true);
-                    btnChangePassword.setText("Cambiar Contrasena");
+                    @Override
+                    public void onError(String error) {
+                        runOnUiThread(() -> {
+                            Toast.makeText(EditProfileActivity.this, error, Toast.LENGTH_SHORT).show();
+                            btnChangePassword.setEnabled(true);
+                            btnChangePassword.setText("Cambiar Contrasena");
+                        });
+                    }
                 });
-            }
+    }
 
-            @Override
-            public void onError(String error) {
-                runOnUiThread(() -> {
-                    Toast.makeText(EditProfileActivity.this, error, Toast.LENGTH_SHORT).show();
-                    btnChangePassword.setEnabled(true);
-                    btnChangePassword.setText("Cambiar Contrasena");
-                });
-            }
-        });
+    private boolean isStrongPassword(String password) {
+        if (password.length() < 8)
+            return false;
+
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasDigit = false;
+        boolean hasSpecial = false;
+
+        for (char c : password.toCharArray()) {
+            if (Character.isUpperCase(c))
+                hasUpper = true;
+            else if (Character.isLowerCase(c))
+                hasLower = true;
+            else if (Character.isDigit(c))
+                hasDigit = true;
+            else if ("!@#$%^&*(),.?\":{}|<>".indexOf(c) >= 0)
+                hasSpecial = true;
+        }
+
+        return hasUpper && hasLower && hasDigit && hasSpecial;
     }
 
     @Override

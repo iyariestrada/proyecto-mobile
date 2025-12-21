@@ -79,7 +79,8 @@ public class MainActivity extends AppCompatActivity
         // Inicializar PreferencesManager
         preferencesManager = new PreferencesManager(this);
 
-        // Iniciar sesión al abrir la app
+        // Solo iniciar sesión si el usuario está autenticado o eligió continuar como anónimo
+        // LoginActivity redirige aquí solo después de login o continuar anónimo
         initializeSession();
 
         // Configurar Toolbar
@@ -123,7 +124,14 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private void updateNavigationHeader() {
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Actualizar header cuando vuelve de otra actividad (ej: LoginActivity)
+        updateNavigationHeader();
+    }
+
+    public void updateNavigationHeader() {
         TextView headerUserInfo = navigationView.getHeaderView(0).findViewById(R.id.nav_header_user_info);
         if (preferencesManager.isUserLoggedIn()) {
             headerUserInfo.setText(preferencesManager.getUserEmail());
@@ -139,6 +147,11 @@ public class MainActivity extends AppCompatActivity
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.content_frame, fragment);
         transaction.commit();
+    }
+
+    public void loadHomeFragment() {
+        loadFragment(new HomeFragment());
+        navigationView.setCheckedItem(R.id.nav_inicio);
     }
 
     @Override
@@ -526,6 +539,29 @@ public class MainActivity extends AppCompatActivity
         Log.d("SETTINGS", "Configuraciones de alerta actualizadas");
     }
 
+    /**
+     * Detiene las mediciones de sensores
+     * Llamado al cerrar sesión
+     */
+    public void stopSensorMeasurements() {
+        Log.d("SENSORS", "Deteniendo mediciones de sensores");
+
+        if (sensorManager != null) {
+            sensorManager.unregisterListener(this);
+        }
+
+        // Finalizar sesión actual si existe
+        finalizeSession();
+
+        // Liberar recursos de audio
+        if (alertSound != null) {
+            alertSound.release();
+            alertSound = null;
+        }
+
+        Log.i("SENSORS", "Mediciones detenidas exitosamente");
+    }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
@@ -676,6 +712,25 @@ public class MainActivity extends AppCompatActivity
             token = preferencesManager.getUserToken();
             Log.d("SESSION", "Usuario REGISTRADO detectado - userId=" + userId);
         }
+
+        // Verificar/registrar dispositivo primero
+        ensureDeviceRegistered(userId, token, isAnonymous, () -> {
+            // Una vez registrado el dispositivo, crear sesión
+            createNewSession(userId, token, isAnonymous);
+        });
+    }
+
+    /**
+     * Inicializa una nueva sesión anónima después del logout
+     * Método público para ser llamado desde ProfileFragment
+     */
+    public void initializeAnonymousSession() {
+        Log.d("SESSION", "=== INICIANDO SESIÓN ANÓNIMA DESPUÉS DE LOGOUT ===");
+
+        // Forzar creación de nueva sesión anónima
+        long userId = 1; // Usuario anónimo
+        String token = null;
+        boolean isAnonymous = true;
 
         // Verificar/registrar dispositivo primero
         ensureDeviceRegistered(userId, token, isAnonymous, () -> {

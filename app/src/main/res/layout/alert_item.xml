@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:cardUseCompatPadding="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header con badge y sesión -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <!-- Badge de severidad -->
+            <TextView
+                android:id="@+id/tvSeveridadBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:text="ALTA"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:background="@drawable/badge_background"
+                android:layout_marginEnd="8dp"/>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"/>
+
+            <!-- ID de sesión -->
+            <TextView
+                android:id="@+id/tvSessionId"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sesión #123"
+                android:textSize="12sp"
+                android:textColor="#999999"
+                android:textStyle="bold"/>
+
+        </LinearLayout>
+
+        <!-- Tipo de alerta -->
+        <TextView
+            android:id="@+id/tvTipoAlerta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Caminando y usando teléfono"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Descripción -->
+        <TextView
+            android:id="@+id/tvDescripcion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Usuario detectado caminando a velocidad rápida mientras usa el teléfono"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_marginBottom="12dp"/>
+
+        <!-- Detalles en grid -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:background="#f8f9fa"
+            android:layout_marginBottom="12dp">
+
+            <!-- Fila 1: Fecha -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Fecha:"
+                    android:textSize="13sp"
+                    android:textColor="#666666"/>
+
+                <TextView
+                    android:id="@+id/tvFecha"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="20/12/2025 15:30"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"/>
+
+            </LinearLayout>
+
+            <!-- Fila 2: Velocidad -->
+            <LinearLayout
+                android:id="@+id/layoutVelocidad"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Velocidad:"
+                    android:textSize="13sp"
+                    android:textColor="#666666"/>
+
+                <TextView
+                    android:id="@+id/tvVelocidad"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Rápida"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"/>
+
+            </LinearLayout>
+
+            <!-- Fila 3: Pasos -->
+            <LinearLayout
+                android:id="@+id/layoutPasos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Pasos:"
+                    android:textSize="13sp"
+                    android:textColor="#666666"/>
+
+                <TextView
+                    android:id="@+id/tvPasos"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="150"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Botón Ver Detalles -->
+        <Button
+            android:id="@+id/btnVerDetalles"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ver Detalles"
+            android:textColor="@android:color/white"
+            android:background="@drawable/button_primary"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:textStyle="bold"/>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

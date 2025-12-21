@@ -147,10 +147,11 @@ public class ApiService {
     }
 
     // Actualizar datos del usuario
-    public static void updateUser(int userId, String nombre, String correo, String token, ApiCallback callback) {
+    public static void updateUser(String correoActual, String nombre, String nuevoCorreo, String token,
+            ApiCallback callback) {
         new Thread(() -> {
             try {
-                URL url = new URL(API_BASE + "/usuarios/update/" + userId);
+                URL url = new URL(API_BASE + "/usuarios/" + correoActual);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("PUT");
                 conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
@@ -160,7 +161,7 @@ public class ApiService {
 
                 JSONObject json = new JSONObject();
                 json.put("nombre", nombre);
-                json.put("correo", correo);
+                json.put("correo", nuevoCorreo);
 
                 OutputStream os = conn.getOutputStream();
                 os.write(json.toString().getBytes("UTF-8"));
@@ -554,6 +555,150 @@ public class ApiService {
         }).start();
     }
 
+    // Enviar código de recuperación de contraseña
+    public static void forgotPassword(String email, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/usuarios/forgotpass");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                JSONObject json = new JSONObject();
+                json.put("email", email);
+
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al enviar código");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_FORGOT_PASS", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Verificar código de recuperación
+    public static void verifyCode(String email, String code, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/usuarios/verifycode");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                JSONObject json = new JSONObject();
+                json.put("email", email);
+                json.put("code", code);
+
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Código inválido");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_VERIFY_CODE", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Restablecer contraseña
+    public static void resetPassword(String email, String code, String newPassword, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/usuarios/resetpass");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                JSONObject json = new JSONObject();
+                json.put("email", email);
+                json.put("code", code);
+                json.put("newPassword", newPassword);
+
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al restablecer contraseña");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_RESET_PASS", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
     // Enviar alerta (nuevo sistema de alertas)
     public static void sendAlerta(long sessionId, long userId, String tipoAlerta, String severidad,
             String descripcion, JSONObject contexto, long detectedAt, String token, ApiCallback callback) {
@@ -609,6 +754,92 @@ public class ApiService {
 
             } catch (Exception e) {
                 Log.e("API_ALERTA", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Obtener alertas por usuario
+    public static void getAlertasByUsuario(long userId, String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/alertas/usuario/" + userId);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+                // Solo agregar token si no es usuario anónimo
+                if (token != null && !token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al obtener alertas");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_GET_ALERTAS", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
+    // Obtener alertas por sesión
+    public static void getAlertasBySession(long sessionId, String token, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/alertas/sesion/" + sessionId);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+                // Solo agregar token si no es usuario anónimo
+                if (token != null && !token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al obtener alertas de la sesión");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_GET_SESSION_ALERTS", "Error: " + e.toString());
                 callback.onError("Error al conectar con el servidor");
             }
         }).start();

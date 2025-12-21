@@ -62,7 +62,8 @@ public class LoginActivity extends AppCompatActivity {
 
         // Olvidé contraseña
         tvForgotPassword.setOnClickListener(v -> {
-            Toast.makeText(this, "Funcionalidad de recuperacion en desarrollo", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(LoginActivity.this, ForgotPasswordActivity.class);
+            startActivity(intent);
         });
 
         // Continuar sin cuenta (modo anónimo)
