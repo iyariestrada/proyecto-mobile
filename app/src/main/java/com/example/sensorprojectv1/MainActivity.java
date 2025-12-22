@@ -53,8 +53,8 @@ public class MainActivity extends AppCompatActivity
     // Umbrales de aceleración (m/s²) - Ajustados para uso activo del teléfono
     // Valores reducidos para detectar pasos cuando el usuario usa el dispositivo
     private static final float STEP_THRESHOLD_MIN = 0.5f; // Umbral mínimo (uso activo del teléfono)
-    private static final float STEP_THRESHOLD_MAX = 2.0f; // Umbral máximo (caminata rápida con teléfono)
-    private static final float DYNAMIC_FACTOR = 1.2f; // Factor para umbral dinámico adaptativo
+    private static final float STEP_THRESHOLD_MAX = 3.5f; // Umbral máximo (caminata rápida con teléfono)
+    private static final float DYNAMIC_FACTOR = 1.5f; // Factor para umbral dinámico adaptativo
 
     // Restricciones temporales (ms) - Basado en cadencia humana
     // Caminata humana: 0.5-2.0 pasos/segundo → 500-2000ms entre pasos
@@ -256,10 +256,26 @@ public class MainActivity extends AppCompatActivity
         // Actualizar timestamp del último envío
         lastDataSendTime = now;
 
-        // Los usuarios anónimos siempre envían datos
-        // Los usuarios registrados pueden optar por no participar
-        if (preferencesManager.isUserLoggedIn() && !preferencesManager.isParticipateEnabled()) {
-            return; // Usuario registrado que no participa
+        // NUEVO COMPORTAMIENTO:
+        // - Usuarios anónimos: SIEMPRE envían datos (sin token)
+        // - Usuarios registrados que participan: envían datos con token
+        // - Usuarios registrados que NO participan: envían datos SIN token (como anónimos)
+        //
+        // IMPORTANTE: La sesión (sessionId) determina qué userId se usa en el backend
+        // Solo necesitamos decidir si enviar token o no
+
+        boolean isLoggedIn = preferencesManager.isUserLoggedIn();
+        boolean isParticipating = preferencesManager.isParticipateEnabled();
+
+        // Determinar si enviar token (participantes registrados) o null (anónimos y no participantes)
+        String tokenToSend;
+
+        if (isLoggedIn && isParticipating) {
+            // Usuario registrado que participa → enviar con token
+            tokenToSend = preferencesManager.getUserToken();
+        } else {
+            // Usuario anónimo O usuario registrado que NO participa → enviar sin token
+            tokenToSend = null;
         }
 
         try {
@@ -296,9 +312,8 @@ public class MainActivity extends AppCompatActivity
             // Timestamp
             json.put("recorded_at", System.currentTimeMillis());
 
-            String token = preferencesManager.getUserToken();
-
-            ApiService.sendSensorData(sessionId, json, token, new ApiService.ApiCallback() {
+            // Usar el token determinado anteriormente (null para anónimos y no participantes)
+            ApiService.sendSensorData(sessionId, json, tokenToSend, new ApiService.ApiCallback() {
                 @Override
                 public void onSuccess(JSONObject response) {
                     Log.d("SENSOR_DATA", "Datos enviados exitosamente");
@@ -996,19 +1011,31 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        // Determinar userId: 1 para anónimo, userId real para registrados
+        // Determinar userId y token según estado de login y participación
         long userId;
         String token;
-        boolean isAnonymous = !preferencesManager.isUserLoggedIn();
+        boolean isLoggedIn = preferencesManager.isUserLoggedIn();
+        boolean isParticipating = preferencesManager.isParticipateEnabled();
+        boolean isAnonymous;
 
-        if (isAnonymous) {
-            userId = 1; // Usuario anónimo genérico
+        if (!isLoggedIn) {
+            // Usuario NO logueado → anónimo
+            userId = 1;
             token = null;
+            isAnonymous = true;
             Log.d("SESSION", "Usuario ANÓNIMO detectado - usando userId=1");
+        } else if (!isParticipating) {
+            // Usuario registrado que NO participa → tratado como anónimo (datos sin asociar)
+            userId = 1; // ← CAMBIO CRÍTICO: usar userId=1 para no participantes
+            token = null; // ← Sin token para que no se asocie al usuario
+            isAnonymous = true; // ← Marcar como anónimo para el backend
+            Log.d("SESSION", "Usuario REGISTRADO sin participación - usando userId=1 (anónimo)");
         } else {
+            // Usuario registrado que SÍ participa → usar sus credenciales
             userId = preferencesManager.getUserId();
             token = preferencesManager.getUserToken();
-            Log.d("SESSION", "Usuario REGISTRADO detectado - userId=" + userId);
+            isAnonymous = false;
+            Log.d("SESSION", "Usuario REGISTRADO participante - userId=" + userId);
         }
 
         // Verificar/registrar dispositivo primero

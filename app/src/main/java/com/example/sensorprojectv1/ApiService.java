@@ -161,7 +161,7 @@ public class ApiService {
 
                 JSONObject json = new JSONObject();
                 json.put("nombre", nombre);
-                json.put("correo", nuevoCorreo);
+                json.put("email", nuevoCorreo);
 
                 OutputStream os = conn.getOutputStream();
                 os.write(json.toString().getBytes("UTF-8"));

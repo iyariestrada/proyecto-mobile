@@ -31,14 +31,82 @@ public class LoginActivity extends AppCompatActivity {
 
         preferencesManager = new PreferencesManager(this);
 
-        // Verificar si ya está logueado
+        // CRÍTICO: Verificar si hay sesión activa Y válida
+        // No confiar ciegamente en SharedPreferences (pueden ser de instalación anterior)
         if (preferencesManager.isUserLoggedIn()) {
-            goToMainActivity();
-            return;
+            // Verificar si el token es válido antes de saltar a MainActivity
+            String token = preferencesManager.getUserToken();
+            long userId = preferencesManager.getUserId();
+
+            if (token != null && !token.isEmpty() && userId != -1) {
+                // Validar token con el backend
+                validateSessionAndProceed(token, userId);
+                return; // Esperar resultado de validación
+            } else {
+                // Token inválido o faltante → limpiar sesión corrupta
+                android.util.Log.w("LOGIN", "Sesión corrupta detectada - limpiando datos");
+                preferencesManager.logout();
+            }
         }
 
         initializeViews();
         setupListeners();
+    }
+
+    /**
+     * Valida la sesión existente con el backend antes de saltar a MainActivity
+     * Previene acceso con sesiones expiradas o datos de instalaciones anteriores
+     */
+    private void validateSessionAndProceed(String token, long userId) {
+        // TODO: Implementar endpoint de validación de token en el backend
+        // Por ahora, asumir que si hay token, la sesión es válida
+        // En producción, deberías hacer una llamada al backend para verificar
+
+        // TEMPORAL: Ir directamente a MainActivity
+        // RECOMENDACIÓN: Agregar endpoint /api/auth/validate en el backend
+        goToMainActivity();
+
+        /* IMPLEMENTACIÓN RECOMENDADA (comentada para no romper el flujo actual):
+        ApiService.validateToken(token, new ApiService.ApiCallback() {
+            @Override
+            public void onSuccess(JSONObject response) {
+                runOnUiThread(() -> {
+                    try {
+                        if (response.getBoolean("valid")) {
+                            // Token válido → ir a MainActivity
+                            goToMainActivity();
+                        } else {
+                            // Token expirado → limpiar y mostrar login
+                            preferencesManager.logout();
+                            initializeViews();
+                            setupListeners();
+                            Toast.makeText(LoginActivity.this,
+                                "Sesión expirada - Por favor inicia sesión nuevamente",
+                                Toast.LENGTH_LONG).show();
+                        }
+                    } catch (Exception e) {
+                        // Error al validar → limpiar y mostrar login
+                        preferencesManager.logout();
+                        initializeViews();
+                        setupListeners();
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                runOnUiThread(() -> {
+                    // Error de red o backend → limpiar y mostrar login
+                    preferencesManager.logout();
+                    initializeViews();
+                    setupListeners();
+                    Toast.makeText(LoginActivity.this,
+                        "No se pudo verificar la sesión",
+                        Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+        */
     }
 
     private void initializeViews() {
