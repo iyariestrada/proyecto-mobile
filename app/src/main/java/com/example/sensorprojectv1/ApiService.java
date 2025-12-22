@@ -737,6 +737,43 @@ public class ApiService {
         }).start();
     }
 
+    public static void getAlertasByDeviceUUID(String deviceUUID, ApiCallback callback) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(API_BASE + "/alertas/dispositivo/" + deviceUUID);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    callback.onSuccess(jsonResponse);
+                } else {
+                    String errorMsg = jsonResponse.optString("message", "Error al obtener alertas del dispositivo");
+                    callback.onError(errorMsg);
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                Log.e("API_GET_ALERTAS_DEVICE", "Error: " + e.toString());
+                callback.onError("Error al conectar con el servidor");
+            }
+        }).start();
+    }
+
     public static void getAlertasBySession(long sessionId, String token, ApiCallback callback) {
         new Thread(() -> {
             try {

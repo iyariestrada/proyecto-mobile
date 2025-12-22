@@ -1,58 +1,58 @@
 <resources>
-    <string name="app_name">SafeWalk</string>
+    <string name="app_name">PDC</string>
 
     <!-- Navigation Drawer -->
-    <string name="drawer_open">Abrir menu</string>
-    <string name="drawer_close">Cerrar menu</string>
+    <string name="drawer_open">Abrir menú</string>
+    <string name="drawer_close">Cerrar menú</string>
 
     <!-- Menu Items -->
     <string name="menu_inicio">Inicio</string>
     <string name="menu_perfil">Perfil</string>
     <string name="menu_avisos">Avisos</string>
-    <string name="menu_estadisticas">Estadisticas</string>
+    <string name="menu_estadisticas">Estadísticas</string>
     <string name="menu_ajustes">Ajustes</string>
 
     <!-- Home Screen -->
-    <string name="welcome_message">Bienvenido a SafeWalk</string>
-    <string name="login_prompt">Inicia sesion o registrate para participar en el estudio</string>
-    <string name="btn_login">Iniciar Sesion</string>
+    <string name="welcome_message">Bienvenido a PDC</string>
+    <string name="login_prompt">Inicia sesión o regístrate para participar en el estudio</string>
+    <string name="btn_login">Iniciar Sesión</string>
     <string name="btn_register">Registrarse</string>
-    <string name="anonymous_mode">Modo anonimo activo</string>
+    <string name="anonymous_mode">Modo anónimo activo</string>
 
     <!-- Settings -->
     <string name="settings_alerts">Alertas</string>
     <string name="settings_sound_alert">Alerta de sonido</string>
-    <string name="settings_vibration_alert">Alerta de vibracion</string>
+    <string name="settings_vibration_alert">Alerta de vibración</string>
     <string name="settings_participate">Participar en el estudio</string>
-    <string name="settings_participate_desc">Tus datos seran compartidos de forma anonima para investigacion</string>
-    <string name="settings_anonymous_desc">Tus datos se guardan localmente de forma anonima</string>
+    <string name="settings_participate_desc">Tus datos serán compartidos de forma anónima para investigación</string>
+    <string name="settings_anonymous_desc">Tus datos se guardan localmente de forma anónima</string>
 
     <!-- Status -->
     <string name="status_walking">Caminando</string>
-    <string name="status_using_phone">Usando telefono</string>
-    <string name="status_alert">ALERTA: Caminando y usando el telefono</string>
+    <string name="status_using_phone">Usando teléfono</string>
+    <string name="status_alert">ALERTA: Caminando y usando el teléfono</string>
     <string name="status_safe">Estado seguro</string>
 
     <!-- Login/Register -->
-    <string name="login_title">Iniciar Sesion</string>
+    <string name="login_title">Iniciar Sesión</string>
     <string name="register_title">Crear Cuenta</string>
-    <string name="email_hint">Correo electronico</string>
-    <string name="password_hint">Contrasena</string>
+    <string name="email_hint">Correo electrónico</string>
+    <string name="password_hint">Contraseña</string>
     <string name="name_hint">Nombre</string>
-    <string name="confirm_password_hint">Confirmar contrasena</string>
-    <string name="forgot_password">Olvide mi contrasena</string>
+    <string name="confirm_password_hint">Confirmar contraseña</string>
+    <string name="forgot_password">Olvidé mi contraseña</string>
     <string name="continue_anonymous">Continuar sin cuenta</string>
-    <string name="anonymous_warning">Sin cuenta no tendras acceso al historial de alertas</string>
-    <string name="no_account">No tienes cuenta?</string>
-    <string name="have_account">Ya tienes cuenta?</string>
-    <string name="register_here">Registrate aqui</string>
-    <string name="login_here">Inicia sesion</string>
-    <string name="participate_study">Deseo participar en el estudio de investigacion</string>
+    <string name="anonymous_warning">Sin cuenta no tendrás acceso al historial de alertas</string>
+    <string name="no_account">¿No tienes cuenta?</string>
+    <string name="have_account">¿Ya tienes cuenta?</string>
+    <string name="register_here">Regístrate aquí</string>
+    <string name="login_here">Inicia sesión</string>
+    <string name="participate_study">Deseo participar en el estudio de investigación</string>
 
     <!-- Edit Profile -->
     <string name="edit_profile">Editar Perfil</string>
     <string name="update_account">Actualizar Cuenta</string>
-    <string name="change_password">Cambiar Contrasena</string>
-    <string name="current_password">Contrasena actual</string>
-    <string name="new_password">Nueva contrasena</string>
+    <string name="change_password">Cambiar Contraseña</string>
+    <string name="current_password">Contraseña actual</string>
+    <string name="new_password">Nueva contraseña</string>
 </resources>

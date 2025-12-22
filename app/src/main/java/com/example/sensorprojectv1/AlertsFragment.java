@@ -63,83 +63,139 @@ public class AlertsFragment extends Fragment {
     }
 
     private void loadAlertas() {
-        if (!preferencesManager.isUserLoggedIn()) {
-            showEmptyState("Inicia sesión para ver tu historial de alertas");
-            return;
-        }
-
-        long userId = preferencesManager.getUserId();
-        String token = preferencesManager.getUserToken();
-
-        if (userId == -1) {
-            showEmptyState("Usuario no identificado");
-            return;
-        }
-
         showLoadingState();
 
-        ApiService.getAlertasByUsuario(userId, token, new ApiService.ApiCallback() {
-            @Override
-            public void onSuccess(JSONObject response) {
-                if (getActivity() == null)
-                    return;
+        // Determinar si el usuario está en modo anónimo o participante
+        boolean isLoggedIn = preferencesManager.isUserLoggedIn();
+        boolean isParticipating = preferencesManager.isParticipateEnabled();
 
-                getActivity().runOnUiThread(() -> {
-                    try {
-                        if (response.getBoolean("success")) {
-                            JSONArray dataArray = response.getJSONArray("data");
-                            alertas.clear();
+        // Si NO está logueado o NO está participando, buscar por UUID de dispositivo
+        if (!isLoggedIn || !isParticipating) {
+            String deviceUUID = preferencesManager.getDeviceUUID();
 
-                            for (int i = 0; i < dataArray.length(); i++) {
-                                JSONObject alertaJson = dataArray.getJSONObject(i);
-
-                                long idAlerta = alertaJson.getLong("id_alerta");
-                                long idSesion = alertaJson.getLong("id_sesion");
-                                long idUsuario = alertaJson.getLong("id_usuario");
-                                String tipoAlerta = alertaJson.getString("tipo_alerta");
-                                String severidad = alertaJson.getString("severidad");
-                                String descripcion = alertaJson.optString("descripcion", "");
-                                JSONObject contexto = alertaJson.optJSONObject("contexto");
-                                String detectedAt = alertaJson.getString("detected_at");
-                                String createdAt = alertaJson.optString("created_at", "");
-
-                                Alerta alerta = new Alerta(idAlerta, idSesion, idUsuario,
-                                        tipoAlerta, severidad, descripcion, contexto,
-                                        detectedAt, createdAt);
-
-                                alertas.add(alerta);
-                            }
-
-                            adapter.updateAlertas(alertas);
-
-                            if (alertas.isEmpty()) {
-                                showEmptyState("No hay alertas registradas");
-                            } else {
-                                showContentState();
-                            }
-
-                            Log.d("ALERTS_FRAGMENT", "Alertas cargadas: " + alertas.size());
-                        } else {
-                            showErrorState("Error al cargar alertas");
-                        }
-                    } catch (Exception e) {
-                        Log.e("ALERTS_FRAGMENT", "Error al procesar alertas: " + e.toString());
-                        showErrorState("Error al procesar datos");
-                    }
-                });
+            if (deviceUUID == null || deviceUUID.isEmpty()) {
+                showEmptyState("No se pudo identificar el dispositivo");
+                return;
             }
 
-            @Override
-            public void onError(String error) {
-                if (getActivity() == null)
-                    return;
+            // Buscar alertas por UUID de dispositivo (modo anónimo)
+            ApiService.getAlertasByDeviceUUID(deviceUUID, new ApiService.ApiCallback() {
+                @Override
+                public void onSuccess(JSONObject response) {
+                    processAlertasResponse(response, true);
+                }
 
-                getActivity().runOnUiThread(() -> {
-                    Log.e("ALERTS_FRAGMENT", "Error al cargar alertas: " + error);
-                    showErrorState(error);
-                });
+                @Override
+                public void onError(String error) {
+                    handleAlertasError(error);
+                }
+            });
+        } else {
+            // Usuario registrado y participante: buscar por userId
+            long userId = preferencesManager.getUserId();
+            String token = preferencesManager.getUserToken();
+
+            if (userId == -1) {
+                showEmptyState("Usuario no identificado");
+                return;
+            }
+
+            ApiService.getAlertasByUsuario(userId, token, new ApiService.ApiCallback() {
+                @Override
+                public void onSuccess(JSONObject response) {
+                    processAlertasResponse(response, false);
+                }
+
+                @Override
+                public void onError(String error) {
+                    handleAlertasError(error);
+                }
+            });
+        }
+    }
+
+    /**
+     * Procesa la respuesta de alertas del servidor
+     * @param response Respuesta JSON del servidor
+     * @param isAnonymous Si las alertas son del modo anónimo
+     */
+    private void processAlertasResponse(JSONObject response, boolean isAnonymous) {
+        if (getActivity() == null)
+            return;
+
+        getActivity().runOnUiThread(() -> {
+            try {
+                if (response.getBoolean("success")) {
+                    JSONArray dataArray = response.getJSONArray("data");
+                    alertas.clear();
+
+                    for (int i = 0; i < dataArray.length(); i++) {
+                        JSONObject alertaJson = dataArray.getJSONObject(i);
+
+                        long idAlerta = alertaJson.getLong("id_alerta");
+                        long idSesion = alertaJson.getLong("id_sesion");
+                        long idUsuario = alertaJson.getLong("id_usuario");
+                        String tipoAlerta = alertaJson.getString("tipo_alerta");
+                        String severidad = alertaJson.getString("severidad");
+                        String descripcion = alertaJson.optString("descripcion", "");
+                        JSONObject contexto = alertaJson.optJSONObject("contexto");
+                        String detectedAt = alertaJson.getString("detected_at");
+                        String createdAt = alertaJson.optString("created_at", "");
+
+                        Alerta alerta = new Alerta(idAlerta, idSesion, idUsuario,
+                                tipoAlerta, severidad, descripcion, contexto,
+                                detectedAt, createdAt);
+
+                        alertas.add(alerta);
+                    }
+
+                    adapter.updateAlertas(alertas);
+
+                    if (alertas.isEmpty()) {
+                        if (isAnonymous) {
+                            showEmptyState("No hay alertas registradas en modo anónimo.\n\nNota: Las alertas en modo anónimo no aparecen en tu historial web completo.");
+                        } else {
+                            showEmptyState("No hay alertas registradas");
+                        }
+                    } else {
+                        showContentState();
+                        // Mostrar notificación sobre modo anónimo si aplica
+                        if (isAnonymous) {
+                            showAnonymousModeNotice();
+                        }
+                    }
+
+                    Log.d("ALERTS_FRAGMENT", "Alertas cargadas: " + alertas.size() + " (Anónimo: " + isAnonymous + ")");
+                } else {
+                    showErrorState("Error al cargar alertas");
+                }
+            } catch (Exception e) {
+                Log.e("ALERTS_FRAGMENT", "Error al procesar alertas: " + e.toString());
+                showErrorState("Error al procesar datos");
             }
         });
+    }
+
+    /**
+     * Maneja errores al cargar alertas
+     */
+    private void handleAlertasError(String error) {
+        if (getActivity() == null)
+            return;
+
+        getActivity().runOnUiThread(() -> {
+            Log.e("ALERTS_FRAGMENT", "Error al cargar alertas: " + error);
+            showErrorState(error);
+        });
+    }
+
+    /**
+     * Muestra un aviso sobre el modo anónimo
+     */
+    private void showAnonymousModeNotice() {
+        Toast.makeText(requireContext(),
+            "Mostrando alertas del dispositivo (modo anónimo). Estas no aparecen en tu historial web completo.",
+            Toast.LENGTH_LONG).show();
     }
 
     private void onAlertClick(Alerta alerta) {
@@ -225,9 +281,8 @@ public class AlertsFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // Recargar alertas cuando el fragment vuelve hacer visible
-        if (preferencesManager.isUserLoggedIn()) {
-            loadAlertas();
-        }
+        // Recargar alertas cuando el fragment vuelve a ser visible
+        // Funciona tanto en modo anónimo como en modo participante
+        loadAlertas();
     }
 }

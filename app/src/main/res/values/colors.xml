@@ -1,8 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Colores básicos -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="primary">#2196F3</color>
-    <color name="primary_dark">#1976D2</color>
-    <color name="accent">#FF5722</color>
+
+    <!-- Paleta Oscura Profesional -->
+
+    <!-- Fondos principales -->
+    <color name="background_primary">#0f172a</color>         <!-- Muy oscuro -->
+    <color name="background_secondary">#1e293b</color>       <!-- Oscuro medio -->
+    <color name="background_tertiary">#1e293b</color>        <!-- Oscuro medio alternativo -->
+
+    <!-- Bordes -->
+    <color name="border">#334155</color>                     <!-- Gris oscuro -->
+    <color name="border_light">#475569</color>               <!-- Gris oscuro más claro -->
+
+    <!-- Texto -->
+    <color name="text_primary">#f1f5f9</color>               <!-- Blanco suave -->
+    <color name="text_secondary">#cbd5e1</color>             <!-- Gris claro -->
+    <color name="text_tertiary">#94a3b8</color>              <!-- Gris medio -->
+    <color name="text_disabled">#64748b</color>              <!-- Gris deshabilitado -->
+
+    <!-- Acentos primarios (Azul brillante) -->
+    <color name="accent_primary">#60a5fa</color>             <!-- Azul brillante -->
+    <color name="accent_primary_light">#93c5fd</color>       <!-- Azul brillante claro -->
+    <color name="accent_primary_dark">#3b82f6</color>        <!-- Azul brillante oscuro -->
+
+    <!-- Acentos secundarios (Azul oscuro) -->
+    <color name="accent_secondary">#1d4ed8</color>           <!-- Azul oscuro -->
+    <color name="accent_secondary_dark">#1e40af</color>      <!-- Azul muy oscuro -->
+
+    <!-- Colores de estado -->
+    <color name="success">#10b981</color>                    <!-- Verde éxito -->
+    <color name="warning">#f59e0b</color>                    <!-- Naranja advertencia -->
+    <color name="error">#ef4444</color>                      <!-- Rojo error -->
+    <color name="info">#60a5fa</color>                       <!-- Azul información -->
+
+    <!-- Colores Material Design (Compatibilidad) -->
+    <color name="primary">#3b82f6</color>
+    <color name="primary_dark">#1d4ed8</color>
+    <color name="accent">#60a5fa</color>
+
+    <!-- Surface colors -->
+    <color name="surface">#1e293b</color>
+    <color name="surface_variant">#334155</color>
+
+    <!-- Overlay -->
+    <color name="overlay">#80000000</color>                  <!-- Negro semi-transparente -->
+    <color name="overlay_light">#40000000</color>            <!-- Negro muy transparente -->
+
+    <!-- Transparencias -->
+    <color name="transparent">#00000000</color>
 </resources>

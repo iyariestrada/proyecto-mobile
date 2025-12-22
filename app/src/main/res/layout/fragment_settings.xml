@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/background_primary"
     android:fillViewport="true">
 
     <LinearLayout
@@ -14,6 +16,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/menu_ajustes"
+            android:textColor="@color/text_primary"
             android:textSize="24sp"
             android:textStyle="bold"
             android:layout_marginBottom="16dp" />
@@ -23,7 +26,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:elevation="4dp">
+            app:cardBackgroundColor="@color/background_secondary"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp"
+            app:strokeColor="@color/border"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -35,6 +42,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/settings_alerts"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="12dp" />
@@ -52,13 +60,16 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/settings_sound_alert"
+                        android:textColor="@color/text_secondary"
                         android:textSize="16sp" />
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchSoundAlert"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:checked="true" />
+                        android:checked="true"
+                        app:thumbTint="@color/accent_primary"
+                        app:trackTint="@color/border" />
                 </LinearLayout>
 
                 <!-- Alerta de Vibración -->
@@ -73,13 +84,16 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/settings_vibration_alert"
+                        android:textColor="@color/text_secondary"
                         android:textSize="16sp" />
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchVibrationAlert"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:checked="true" />
+                        android:checked="true"
+                        app:thumbTint="@color/accent_primary"
+                        app:trackTint="@color/border" />
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -88,7 +102,11 @@
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:elevation="4dp">
+            app:cardBackgroundColor="@color/background_secondary"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp"
+            app:strokeColor="@color/border"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -100,6 +118,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/settings_participate"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="8dp" />
@@ -110,7 +129,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/settings_participate_desc"
                     android:textSize="14sp"
-                    android:textColor="#666666"
+                    android:textColor="@color/text_tertiary"
                     android:layout_marginBottom="12dp" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -118,7 +137,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Participar en el estudio"
-                    android:checked="false" />
+                    android:textColor="@color/text_secondary"
+                    android:checked="false"
+                    app:thumbTint="@color/accent_primary"
+                    app:trackTint="@color/border" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

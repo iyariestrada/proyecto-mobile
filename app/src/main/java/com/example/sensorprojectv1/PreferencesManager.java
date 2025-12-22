@@ -130,6 +130,8 @@ public class PreferencesManager {
     }
 
     public void logout() {
+        // IMPORTANTE: NO borrar device_uuid ni device_id porque se necesitan
+        // para recuperar alertas anónimas del dispositivo después del logout
         preferences.edit()
                 .putBoolean(KEY_USER_LOGGED_IN, false)
                 .putInt(KEY_USER_ID, -1)
@@ -137,8 +139,7 @@ public class PreferencesManager {
                 .putString(KEY_USER_EMAIL, "")
                 .putString(KEY_USER_TOKEN, "")
                 .putString(KEY_USER_TYPE, "")
-                .putLong(KEY_DEVICE_ID, -1)
-                .putString(KEY_DEVICE_UUID, "")
+                // device_id y device_uuid NO se borran - son persistentes
                 .putLong(KEY_SESSION_ID, -1)
                 .putLong(KEY_SESSION_START, 0)
                 .apply();

@@ -49,8 +49,20 @@ public class SettingsFragment extends Fragment {
         });
 
         switchParticipate.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            boolean wasParticipating = preferencesManager.isParticipateEnabled();
             preferencesManager.setParticipateEnabled(isChecked);
             updateParticipateDescription(isChecked);
+
+            // Si el usuario estaba participando y ahora deja de participar,
+            // finalizar la sesión actual e iniciar una nueva sesión anónima
+            if (wasParticipating && !isChecked && getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).switchToAnonymousSession();
+            }
+            // Si el usuario no estaba participando y ahora decide participar,
+            // finalizar la sesión anónima e iniciar una sesión con su cuenta
+            else if (!wasParticipating && isChecked && getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).switchToParticipatingSession();
+            }
         });
 
         return view;

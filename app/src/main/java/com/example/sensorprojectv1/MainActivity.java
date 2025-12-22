@@ -15,6 +15,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.util.Log;
 import android.os.BatteryManager;
+import android.os.PowerManager;
 import android.content.Context;
 import android.content.IntentFilter;
 import android.content.Intent;
@@ -107,6 +108,7 @@ public class MainActivity extends AppCompatActivity
     private long lastDataSendTime = 0;
 
     private BatteryManager batteryManager;
+    private PowerManager powerManager;
     private PreferencesManager preferencesManager;
     private Vibrator vibrator;
     private MediaPlayer alertSound;
@@ -146,6 +148,7 @@ public class MainActivity extends AppCompatActivity
 
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         batteryManager = (BatteryManager) getSystemService(BATTERY_SERVICE);
+        powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
@@ -273,6 +276,7 @@ public class MainActivity extends AppCompatActivity
             // Estado de detección
             json.put("is_walking", isWalking);
             json.put("is_using_phone", isUsingPhone);
+            json.put("is_walking_using_phone", isWalkingAndUsingPhone ? 1 : 0);
             json.put("step_count", stepCount);
 
             json.put("vertical_acceleration", verticalAcc); // Aceleración vertical proyectada
@@ -348,7 +352,14 @@ public class MainActivity extends AppCompatActivity
     }
 
     private boolean isScreenOn() {
-        return true;
+        if (powerManager != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+                return powerManager.isInteractive();
+            } else {
+                return powerManager.isScreenOn();
+            }
+        }
+        return true; // Si no se puede determinar, asumir que está encendida
     }
 
     private String getDeviceModel() {
@@ -771,7 +782,97 @@ public class MainActivity extends AppCompatActivity
         Log.d("SETTINGS", "Configuraciones de alerta actualizadas");
     }
 
-    /
+    /**
+     * Cambia de sesión participante a sesión anónima
+     * Finaliza la sesión actual y crea una nueva sesión anónima
+     */
+    public void switchToAnonymousSession() {
+        Log.i("SESSION", "=== CAMBIO A SESIÓN ANÓNIMA ===");
+
+        // Finalizar sesión actual
+        long currentSessionId = preferencesManager.getSessionId();
+        if (currentSessionId != -1) {
+            String token = preferencesManager.getUserToken();
+            ApiService.endSession(currentSessionId, token, new ApiService.ApiCallback() {
+                @Override
+                public void onSuccess(JSONObject response) {
+                    Log.i("SESSION", "Sesión participante finalizada exitosamente");
+                    // Limpiar sessionId local
+                    preferencesManager.setSessionId(-1);
+                    preferencesManager.setSessionStart(0);
+
+                    // Iniciar nueva sesión anónima
+                    initializeAnonymousSession();
+                }
+
+                @Override
+                public void onError(String error) {
+                    Log.e("SESSION", "Error al finalizar sesión participante: " + error);
+                    // Aunque falle, limpiar e iniciar sesión anónima
+                    preferencesManager.setSessionId(-1);
+                    preferencesManager.setSessionStart(0);
+                    initializeAnonymousSession();
+                }
+            });
+        } else {
+            // No hay sesión activa, solo iniciar una anónima
+            initializeAnonymousSession();
+        }
+    }
+
+    /**
+     * Cambia de sesión anónima a sesión participante
+     * Finaliza la sesión anónima y crea una nueva sesión con la cuenta del usuario
+     */
+    public void switchToParticipatingSession() {
+        Log.i("SESSION", "=== CAMBIO A SESIÓN PARTICIPANTE ===");
+
+        // Finalizar sesión anónima actual
+        long currentSessionId = preferencesManager.getSessionId();
+        if (currentSessionId != -1) {
+            // Para sesiones anónimas, no se envía token
+            ApiService.endSession(currentSessionId, null, new ApiService.ApiCallback() {
+                @Override
+                public void onSuccess(JSONObject response) {
+                    Log.i("SESSION", "Sesión anónima finalizada exitosamente");
+                    // Limpiar sessionId local
+                    preferencesManager.setSessionId(-1);
+                    preferencesManager.setSessionStart(0);
+
+                    // Iniciar nueva sesión participante
+                    initializeParticipatingSession();
+                }
+
+                @Override
+                public void onError(String error) {
+                    Log.e("SESSION", "Error al finalizar sesión anónima: " + error);
+                    // Aunque falle, limpiar e iniciar sesión participante
+                    preferencesManager.setSessionId(-1);
+                    preferencesManager.setSessionStart(0);
+                    initializeParticipatingSession();
+                }
+            });
+        } else {
+            // No hay sesión activa, solo iniciar una participante
+            initializeParticipatingSession();
+        }
+    }
+
+    /**
+     * Inicia una sesión participante con las credenciales del usuario
+     */
+    private void initializeParticipatingSession() {
+        Log.d("SESSION", "=== INICIANDO SESIÓN PARTICIPANTE ===");
+
+        long userId = preferencesManager.getUserId();
+        String token = preferencesManager.getUserToken();
+        boolean isAnonymous = false;
+
+        // Verificar/registrar dispositivo primero, después crear sesión
+        ensureDeviceRegistered(userId, token, isAnonymous, () -> {
+            createNewSession(userId, token, isAnonymous);
+        });
+    }
 
     public void stopSensorMeasurements() {
         Log.d("SENSORS", "Deteniendo mediciones de sensores");
@@ -837,12 +938,22 @@ public class MainActivity extends AppCompatActivity
         }
 
         try {
-            long userId = preferencesManager.getUserId();
-            if (userId == -1) {
-                userId = 1; // Usuario anónimo
-            }
+            // Determinar userId y token según estado de login y participación
+            boolean isLoggedIn = preferencesManager.isUserLoggedIn();
+            boolean isParticipating = preferencesManager.isParticipateEnabled();
 
-            String token = preferencesManager.getUserToken();
+            long userId;
+            String token;
+
+            if (isLoggedIn && isParticipating) {
+                // Usuario registrado que SÍ participa: usar sus credenciales reales
+                userId = preferencesManager.getUserId();
+                token = preferencesManager.getUserToken();
+            } else {
+                // Usuario anónimo O usuario registrado que NO participa: enviar como anónimo
+                userId = 1;
+                token = null;
+            }
 
             // Determinar severidad según velocidad de caminata
             String severidad = calculateSeverity(walkingSpeed);
@@ -867,8 +978,10 @@ public class MainActivity extends AppCompatActivity
             long detectedAt = System.currentTimeMillis();
 
             Log.d("ALERT", String.format(
-                    "Enviando alerta - Tipo: %s, Severidad: %s, Velocidad: %s",
-                    tipoAlerta, severidad, walkingSpeed));
+                    "Enviando alerta - Tipo: %s, Severidad: %s, Velocidad: %s, Usuario: %s (ID: %d)",
+                    tipoAlerta, severidad, walkingSpeed,
+                    (isLoggedIn && isParticipating) ? "REGISTRADO" : "ANÓNIMO",
+                    userId));
 
             ApiService.sendAlerta(sessionId, userId, tipoAlerta, severidad,
                     descripcion, contexto, detectedAt, token, new ApiService.ApiCallback() {
@@ -1210,7 +1323,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onPause() {
-        super.onPause();¿
+        super.onPause();
         Log.d("LIFECYCLE", "MainActivity onPause - sesión se mantiene activa");
     }
 
