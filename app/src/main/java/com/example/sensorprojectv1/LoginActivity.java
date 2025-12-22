@@ -186,7 +186,7 @@ public class LoginActivity extends AppCompatActivity {
                         try {
                             if (response.getBoolean("success")) {
                                 JSONObject deviceData = response.getJSONObject("data");
-                                long deviceId = deviceData.getLong("id");
+                                long deviceId = deviceData.getLong("id_dispositivo");
 
                                 // Guardar ID del dispositivo
                                 preferencesManager.setDeviceId(deviceId);

@@ -699,7 +699,7 @@ public class ApiService {
         }).start();
     }
 
-    // Enviar alerta (nuevo sistema de alertas)
+    // Enviar alerta
     public static void sendAlerta(long sessionId, long userId, String tipoAlerta, String severidad,
             String descripcion, JSONObject contexto, long detectedAt, String token, ApiCallback callback) {
         new Thread(() -> {

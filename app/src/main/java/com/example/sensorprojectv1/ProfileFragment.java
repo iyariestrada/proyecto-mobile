@@ -134,7 +134,12 @@ public class ProfileFragment extends Fragment {
             // Limpiar datos del usuario localmente
             preferencesManager.logout();
 
+            android.util.Log.i("LOGOUT", "Datos de usuario limpiados completamente");
+
             Toast.makeText(requireContext(), "Sesión cerrada", Toast.LENGTH_SHORT).show();
+
+            // NO iniciar sesión anónima automáticamente
+            // El usuario decidirá en LoginActivity si inicia sesión, continúa anónimo o cierra la app
 
             // Redirigir a LoginActivity
             Intent intent = new Intent(requireContext(), LoginActivity.class);

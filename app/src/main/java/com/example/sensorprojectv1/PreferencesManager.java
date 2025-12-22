@@ -133,6 +133,10 @@ public class PreferencesManager {
         return preferences.getLong(KEY_SESSION_START, 0);
     }
 
+    /**
+     * Limpia TODOS los datos del usuario al cerrar sesión
+     * NO preserva deviceId ni deviceUUID para evitar reutilizar datos del usuario anterior
+     */
     public void logout() {
         preferences.edit()
                 .putBoolean(KEY_USER_LOGGED_IN, false)
@@ -141,6 +145,8 @@ public class PreferencesManager {
                 .putString(KEY_USER_EMAIL, "")
                 .putString(KEY_USER_TOKEN, "")
                 .putString(KEY_USER_TYPE, "")
+                .putLong(KEY_DEVICE_ID, -1)        // Limpiar deviceId
+                .putString(KEY_DEVICE_UUID, "")    // Limpiar deviceUUID
                 .putLong(KEY_SESSION_ID, -1)
                 .putLong(KEY_SESSION_START, 0)
                 .apply();

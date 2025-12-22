@@ -41,20 +41,64 @@ public class MainActivity extends AppCompatActivity
     private float gyroX, gyroY, gyroZ;
     private float accX, accY, accZ;
 
-    // Umbrales de varianza para diferentes tipos de caminata
-    private static final float WALKING_VARIANCE_SLOW = 0.15f; // Caminata lenta
-    private static final float WALKING_VARIANCE_NORMAL = 0.6f; // Caminata normal
-    private static final float WALKING_VARIANCE_FAST = 1.2f; // Caminata rápida
+    // ===== STEP DETECTION - Basado en literatura científica =====
+    // Referencias: Pan & Lin (2011), Zhao (2010) - Umbrales validados
+    // Detección sobre eje vertical dinámico para uso activo del teléfono
 
-    private static final int SAMPLE_SIZE = 20;
-    private static final long WALKING_CHECK_INTERVAL = 250;
-    private float[] accMagnitudeHistory = new float[SAMPLE_SIZE];
-    private int sampleIndex = 0;
-    private long lastWalkingCheck = 0;
+    // Configuración de buffer y warm-up
+    private static final int SAMPLE_SIZE = 25; // Ventana de análisis (~500ms con SENSOR_DELAY_GAME)
+    private static final long WARM_UP_TIME_MS = 2000; // 2 segundos de warm-up
+    private long detectionStartTime = 0; // Timestamp de inicio de detección
+
+    // Umbrales de aceleración (m/s²) - Ajustados para uso activo del teléfono
+    // Valores reducidos para detectar pasos cuando el usuario usa el dispositivo
+    private static final float STEP_THRESHOLD_MIN = 0.5f; // Umbral mínimo (uso activo del teléfono)
+    private static final float STEP_THRESHOLD_MAX = 2.0f; // Umbral máximo (caminata rápida con teléfono)
+    private static final float DYNAMIC_FACTOR = 1.2f; // Factor para umbral dinámico adaptativo
+
+    // Restricciones temporales (ms) - Basado en cadencia humana
+    // Caminata humana: 0.5-2.0 pasos/segundo → 500-2000ms entre pasos
+    private static final long MIN_STEP_INTERVAL = 300; // ~200 pasos/min (muy rápido)
+    private static final long MAX_STEP_INTERVAL = 2000; // ~30 pasos/min (muy lento)
+
+    // Filtros para señal - Ajustados para mejor respuesta
+    private static final float ALPHA_LOW_PASS = 0.5f; // Filtro paso bajo más suave (permite más señal)
+    private static final float ALPHA_HIGH_PASS = 0.95f; // Filtro paso alto más conservador
+
+    // Filtro de gravedad - Recomendación oficial de Android
+    private static final float ALPHA_GRAVITY = 0.8f; // Filtro low-pass para separar gravedad
+    private float[] gravity = new float[3]; // Vector de gravedad filtrado
+
+    // Buffers y estado
+    private float[] accBuffer = new float[SAMPLE_SIZE];
+    private int bufferIndex = 0;
+    private int samplesCollected = 0;
+    private boolean bufferReady = false;
+
+    // Variables de filtrado
+    private float accFiltered = 0; // Señal filtrada (paso bajo)
+    private float accMean = 0.0f; // Media móvil para aceleración vertical
+
+    // Detección de picos
+    private boolean aboveThreshold = false;
+    private float lastPeakValue = 0;
+    private long lastStepTime = 0;
+
+    // Contadores y estado
     private int stepCount = 0;
     private boolean isWalking = false;
-    private String walkingSpeed = "Ninguna"; // "Lenta", "Normal", "Rapida", "Ninguna"
+    private String walkingSpeed = "Ninguna";
     private float currentVariance = 0.0f;
+
+    // Métricas avanzadas (para envío al backend)
+    private float verticalAcc = 0.0f;
+    private float dynamicThreshold = 0.0f;
+    private float stdDev = 0.0f;
+
+    // Para validación de patrón (evitar falsos positivos)
+    private static final int STEPS_WINDOW = 4; // Ventana para validar patrón
+    private long[] recentStepTimes = new long[STEPS_WINDOW];
+    private int stepTimeIndex = 0;
 
     private static final float PHONE_USE_GYRO_THRESHOLD = 0.2f;
     private static final float PHONE_TILT_MIN = 20.0f;
@@ -63,6 +107,10 @@ public class MainActivity extends AppCompatActivity
 
     private boolean isWalkingAndUsingPhone = false;
     private int totalAlerts = 0;
+
+    // Throttling para envío de datos
+    private static final long DATA_SEND_INTERVAL_MS = 1000; // Enviar cada segundo (reducir carga en DB)
+    private long lastDataSendTime = 0;
 
     private BatteryManager batteryManager;
     private PreferencesManager preferencesManager;
@@ -79,7 +127,8 @@ public class MainActivity extends AppCompatActivity
         // Inicializar PreferencesManager
         preferencesManager = new PreferencesManager(this);
 
-        // Solo iniciar sesión si el usuario está autenticado o eligió continuar como anónimo
+        // Solo iniciar sesión si el usuario está autenticado o eligió continuar como
+        // anónimo
         // LoginActivity redirige aquí solo después de login o continuar anónimo
         initializeSession();
 
@@ -116,11 +165,13 @@ public class MainActivity extends AppCompatActivity
         accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
         if (gyroscopeSensor != null) {
-            sensorManager.registerListener(this, gyroscopeSensor, SensorManager.SENSOR_DELAY_NORMAL);
+            sensorManager.registerListener(this, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME);
         }
 
         if (accelerometerSensor != null) {
-            sensorManager.registerListener(this, accelerometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
+            // SENSOR_DELAY_GAME = ~50Hz (20ms entre muestras)
+            // 25 muestras = 500ms, tiempo adecuado para detectar un paso
+            sensorManager.registerListener(this, accelerometerSensor, SensorManager.SENSOR_DELAY_GAME);
         }
     }
 
@@ -189,13 +240,21 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void sendSensorData() {
+        // Throttling: solo enviar cada 1 segundo
+        long now = System.currentTimeMillis();
+        if (now - lastDataSendTime < DATA_SEND_INTERVAL_MS) {
+            return; // Demasiado pronto, no enviar
+        }
+
         // Solo enviar datos si hay una sesión activa
         long sessionId = preferencesManager.getSessionId();
 
-        Log.d("SENSOR_DATA", "Preparando para enviar datos - Sesión ID: " + sessionId);
         if (sessionId == -1) {
-            return; // Sin log repetitivo
+            return; // Sin sesión activa
         }
+
+        // Actualizar timestamp del último envío
+        lastDataSendTime = now;
 
         // Los usuarios anónimos siempre envían datos
         // Los usuarios registrados pueden optar por no participar
@@ -219,8 +278,14 @@ public class MainActivity extends AppCompatActivity
             // Estado de detección
             json.put("is_walking", isWalking);
             json.put("is_using_phone", isUsingPhone);
-            json.put("walking_speed", walkingSpeed);
-            json.put("variance", currentVariance);
+
+            // En sendSensorData(), AGREGAR:
+            json.put("vertical_acceleration", verticalAcc); // Aceleración vertical proyectada
+            json.put("gravity_x", gravity[0]); // Vector de gravedad
+            json.put("gravity_y", gravity[1]);
+            json.put("gravity_z", gravity[2]);
+            json.put("dynamic_threshold", dynamicThreshold); // Umbral adaptativo
+            json.put("std_dev", stdDev); // Desviación estándar
 
             // Información del dispositivo
             json.put("battery_level", getBatteryLevel());
@@ -303,59 +368,262 @@ public class MainActivity extends AppCompatActivity
         return Build.VERSION.RELEASE;
     }
 
+    /**
+     * Detección de pasos basada en algoritmos científicos
+     * Referencias:
+     * - Pan & Lin (2011): "An improved human activity recognition system"
+     * - Zhao (2010): "A robust step counting algorithm"
+     *
+     * OPTIMIZADO para uso activo del teléfono:
+     * 1. Filtro de gravedad (low-pass) para separar componente gravitacional
+     * 2. Aceleración lineal = señal cruda - gravedad
+     * 3. Proyección sobre eje vertical dinámico (no asume orientación fija)
+     * 4. Detección de picos sobre señal vertical
+     * 5. Umbrales adaptados para movimiento con teléfono
+     */
     private void detectWalking(float accX, float accY, float accZ) {
-        // Calcular magnitud de aceleración
-        float magnitude = (float) Math.sqrt(accX * accX + accY * accY + accZ * accZ);
+        // 1️⃣ SEPARAR GRAVEDAD correctamente (filtro low-pass recomendado por Android)
+        gravity[0] = ALPHA_GRAVITY * gravity[0] + (1 - ALPHA_GRAVITY) * accX;
+        gravity[1] = ALPHA_GRAVITY * gravity[1] + (1 - ALPHA_GRAVITY) * accY;
+        gravity[2] = ALPHA_GRAVITY * gravity[2] + (1 - ALPHA_GRAVITY) * accZ;
 
-        // Almacenar en historial
-        accMagnitudeHistory[sampleIndex] = magnitude;
-        sampleIndex = (sampleIndex + 1) % SAMPLE_SIZE;
+        // 2️⃣ ACELERACIÓN LINEAL (sin gravedad)
+        float linX = accX - gravity[0];
+        float linY = accY - gravity[1];
+        float linZ = accZ - gravity[2];
 
-        long currentTime = System.currentTimeMillis();
+        // 3️⃣ PROYECCIÓN sobre eje VERTICAL DINÁMICO
+        // La gravedad define la vertical real, independiente de la orientación del
+        // teléfono
+        float gravityMagnitude = (float) Math.sqrt(
+                gravity[0] * gravity[0] +
+                        gravity[1] * gravity[1] +
+                        gravity[2] * gravity[2]);
 
-        // Analizar cada 250ms
-        if (currentTime - lastWalkingCheck >= WALKING_CHECK_INTERVAL) {
-            lastWalkingCheck = currentTime;
+        // Evitar división por cero
+        if (gravityMagnitude < 0.1f) {
+            return; // Gravedad no inicializada aún
+        }
 
-            // Calcular varianza de las muestras
-            currentVariance = calculateVariance(accMagnitudeHistory);
+        // Proyección de aceleración lineal sobre eje vertical
+        verticalAcc = (linX * gravity[0] +
+                linY * gravity[1] +
+                linZ * gravity[2]) / gravityMagnitude;
 
-            // Calcular frecuencia de pasos (detectar patrón repetitivo)
-            float frequency = calculateFrequency(accMagnitudeHistory);
+        // 4️⃣ FILTRO PASO BAJO (eliminar ruido de alta frecuencia)
+        accFiltered = ALPHA_LOW_PASS * accFiltered + (1 - ALPHA_LOW_PASS) * verticalAcc;
 
-            // Determinar tipo de caminata según varianza y frecuencia
-            String previousSpeed = walkingSpeed;
+        // 5️⃣ BUFFER CIRCULAR
+        accBuffer[bufferIndex] = accFiltered;
+        bufferIndex = (bufferIndex + 1) % SAMPLE_SIZE;
 
-            if (currentVariance >= WALKING_VARIANCE_FAST) {
+        // 6️⃣ WARM-UP: Esperar tiempo suficiente antes de detectar
+        long now = System.currentTimeMillis();
+
+        // Inicializar timestamp en la primera muestra
+        if (detectionStartTime == 0) {
+            detectionStartTime = now;
+            accMean = verticalAcc; // CRÍTICO: inicializar con verticalAcc
+            Log.i("STEP_WARMUP", "Iniciando warm-up de " + WARM_UP_TIME_MS + "ms");
+        }
+
+        long elapsedTime = now - detectionStartTime;
+
+        if (elapsedTime < WARM_UP_TIME_MS) {
+            samplesCollected++;
+            // Durante warm-up, inicializar media con valores reales de verticalAcc
+            accMean = accMean * 0.9f + verticalAcc * 0.1f; // Convergencia suave
+
+            // Log periódico durante warm-up (cada 500ms)
+            if (samplesCollected % 25 == 0) {
+                Log.d("STEP_WARMUP", String.format("Warm-up: %dms/%dms | Samples: %d | Vertical: %.2f | Mean: %.2f",
+                        elapsedTime, WARM_UP_TIME_MS, samplesCollected, verticalAcc, accMean));
+            }
+            return; // ⛔ NO detectar pasos aún
+        }
+
+        samplesCollected++;
+
+        // Marcar buffer como listo
+        if (!bufferReady) {
+            bufferReady = true;
+            Log.i("STEP_DETECTION", "Buffer listo - iniciando detección de pasos");
+        }
+
+        // 7️⃣ FILTRO PASO ALTO (eliminar componente de drift)
+        // Media móvil exponencial que se adapta lentamente
+        accMean = ALPHA_HIGH_PASS * accMean + (1 - ALPHA_HIGH_PASS) * accFiltered;
+
+        // Señal centrada (elimina offset)
+        float centeredAcc = accFiltered - accMean;
+
+        // 8️⃣ CÁLCULO DE UMBRAL DINÁMICO con stdDev CORREGIDA
+        // Calcular media REAL del buffer (no usar accMean que es una EMA)
+        float bufferMean = calculateMean(accBuffer);
+        stdDev = calculateStdDev(accBuffer, bufferMean);
+        dynamicThreshold = Math.max(
+                STEP_THRESHOLD_MIN,
+                Math.min(STEP_THRESHOLD_MAX, stdDev * DYNAMIC_FACTOR));
+
+        // 9️⃣ DETECCIÓN DE PICO = PASO
+        // Algoritmo de cruce de umbral con histéresis
+        if (centeredAcc > dynamicThreshold && !aboveThreshold) {
+            // Cruce ascendente detectado
+            aboveThreshold = true;
+            lastPeakValue = centeredAcc;
+
+        } else if (aboveThreshold && centeredAcc > lastPeakValue) {
+            // Actualizar pico máximo
+            lastPeakValue = centeredAcc;
+
+        } else if (aboveThreshold && centeredAcc < dynamicThreshold * 0.5f) {
+            // Cruce descendente = FIN DE PICO → REGISTRAR PASO
+            aboveThreshold = false;
+
+            // CRÍTICO: Si es el primer paso (lastStepTime == 0), aceptarlo sin validar
+            // intervalo
+            if (lastStepTime == 0) {
+                // Primer paso detectado - registrar sin validación de intervalo
+                recentStepTimes[stepTimeIndex] = now;
+                stepTimeIndex = (stepTimeIndex + 1) % STEPS_WINDOW;
+
+                stepCount++;
+                lastStepTime = now;
                 isWalking = true;
-                walkingSpeed = "Rapida";
-                if (!previousSpeed.equals("Rapida")) {
-                    stepCount++;
-                }
-            } else if (currentVariance >= WALKING_VARIANCE_NORMAL) {
-                isWalking = true;
-                walkingSpeed = "Normal";
-                if (!previousSpeed.equals("Normal") && !previousSpeed.equals("Rapida")) {
-                    stepCount++;
-                }
-            } else if (currentVariance >= WALKING_VARIANCE_SLOW) {
-                isWalking = true;
-                walkingSpeed = "Lenta";
-                if (!previousSpeed.equals("Lenta") && !previousSpeed.equals("Normal")
-                        && !previousSpeed.equals("Rapida")) {
-                    stepCount++;
-                }
+                walkingSpeed = "Normal"; // Asumir velocidad normal para primer paso
+
+                Log.d("STEP_DETECTED", String.format(
+                        "✓ PASO #%d (PRIMERO) | Peak: %.2f | Threshold: %.2f",
+                        stepCount, lastPeakValue, dynamicThreshold));
             } else {
-                isWalking = false;
-                walkingSpeed = "Ninguna";
+                // Pasos subsecuentes - validar intervalo temporal
+                long stepInterval = now - lastStepTime;
+
+                // Validar intervalo temporal (evitar pasos imposibles)
+                if (stepInterval > MIN_STEP_INTERVAL && stepInterval < MAX_STEP_INTERVAL) {
+
+                    // Registrar tiempo del paso
+                    recentStepTimes[stepTimeIndex] = now;
+                    stepTimeIndex = (stepTimeIndex + 1) % STEPS_WINDOW;
+
+                    // Validar patrón de pasos (evitar movimientos aislados)
+                    if (isValidStepPattern()) {
+                        stepCount++;
+                        lastStepTime = now;
+                        isWalking = true;
+
+                        // Calcular velocidad de caminata basada en cadencia
+                        updateWalkingSpeed(stepInterval);
+
+                        Log.d("STEP_DETECTED", String.format(
+                                "✓ PASO #%d | Intervalo: %dms | Peak: %.2f | Threshold: %.2f | Velocidad: %s",
+                                stepCount, stepInterval, lastPeakValue, dynamicThreshold, walkingSpeed));
+                    }
+                } else {
+                    Log.d("STEP_REJECTED", String.format(
+                            "✗ Paso inválido | Intervalo: %dms (válido: %d-%d)",
+                            stepInterval, MIN_STEP_INTERVAL, MAX_STEP_INTERVAL));
+                }
             }
 
-            // Log detallado
-            Log.d("WALKING_DETECTION", String.format(
-                    "Varianza: %.3f | Frecuencia: %.2f Hz | Magnitud: %.3f | Estado: %s | Caminata: %s | Pasos: %d",
-                    currentVariance, frequency, magnitude,
-                    isWalking ? "CAMINANDO" : "ESTATICO",
-                    walkingSpeed, stepCount));
+            lastPeakValue = 0;
+        }
+
+        // 🔟 VERIFICAR SI DEJÓ DE CAMINAR
+        // Si no hay pasos en 2.5s, asumir que está detenido
+        if (lastStepTime > 0 && (now - lastStepTime > 2500)) {
+            if (isWalking) {
+                Log.i("STEP_DETECTION", "Usuario detenido - reiniciando estado de caminata");
+            }
+            isWalking = false;
+            walkingSpeed = "Ninguna";
+
+            // CRÍTICO: Si la pausa es MUY larga (>5s), reiniciar lastStepTime
+            // Esto permite que el siguiente paso sea aceptado como "primer paso"
+            if (now - lastStepTime > 5000) {
+                Log.i("STEP_DETECTION", "Pausa larga detectada - reiniciando contador de tiempo");
+                lastStepTime = 0; // El próximo paso será tratado como "primer paso"
+            }
+        }
+
+        // 1️⃣1️⃣ CALCULAR VARIANZA (para compatibilidad con código existente)
+        currentVariance = calculateVariance(accBuffer);
+
+        // 1️⃣2️⃣ LOG PERIÓDICO (cada 100 muestras ≈ cada 2s con SENSOR_DELAY_GAME)
+        if (samplesCollected % 100 == 0) {
+            Log.d("STEP_STATUS", String.format(
+                    "Vertical: %.2f | Filt: %.2f | Mean: %.2f | Centered: %.2f | " +
+                            "Threshold: %.2f | StdDev: %.2f | Steps: %d | Walking: %s (%s)",
+                    verticalAcc, accFiltered, accMean, centeredAcc,
+                    dynamicThreshold, stdDev, stepCount,
+                    isWalking ? "SI" : "NO", walkingSpeed));
+        }
+    }
+
+    /**
+     * Calcula la media real del buffer
+     * CRÍTICO: No usar accMean (que es una EMA), sino la media aritmética del
+     * buffer
+     */
+    private float calculateMean(float[] buffer) {
+        float sum = 0;
+        for (float value : buffer) {
+            sum += value;
+        }
+        return sum / buffer.length;
+    }
+
+    /**
+     * Calcula desviación estándar del buffer con la media CORRECTA
+     */
+    private float calculateStdDev(float[] buffer, float mean) {
+        float sumSquaredDiff = 0;
+        for (float value : buffer) {
+            float diff = value - mean;
+            sumSquaredDiff += diff * diff;
+        }
+        return (float) Math.sqrt(sumSquaredDiff / buffer.length);
+    }
+
+    /**
+     * Valida que los pasos recientes formen un patrón consistente
+     * Evita falsos positivos por movimientos únicos del teléfono
+     */
+    private boolean isValidStepPattern() {
+        // Contar cuántos pasos hay en los últimos 3 segundos
+        long now = System.currentTimeMillis();
+        int recentSteps = 0;
+
+        for (long stepTime : recentStepTimes) {
+            if (stepTime > 0 && (now - stepTime) < 3000) {
+                recentSteps++;
+            }
+        }
+
+        // Permitir primeros 2 pasos para establecer patrón
+        // Después, necesitamos al menos 2 pasos en 3 segundos para confirmar caminata
+        if (stepCount < 2) {
+            return true; // Permitir los primeros 2 pasos sin validación
+        }
+
+        // A partir del tercer paso, validar patrón temporal
+        return recentSteps >= 2;
+    }
+
+    /**
+     * Determina velocidad de caminata basada en cadencia (pasos/minuto)
+     * Literatura: Lento <100, Normal 100-120, Rápido >120 pasos/min
+     */
+    private void updateWalkingSpeed(long stepInterval) {
+        // Convertir intervalo a pasos/minuto
+        float cadence = 60000.0f / stepInterval; // pasos/min
+
+        if (cadence < 80) {
+            walkingSpeed = "Lenta"; // <80 pasos/min
+        } else if (cadence < 120) {
+            walkingSpeed = "Normal"; // 80-120 pasos/min
+        } else {
+            walkingSpeed = "Rapida"; // >120 pasos/min
         }
     }
 
@@ -372,35 +640,6 @@ public class MainActivity extends AppCompatActivity
         }
 
         return varianceSum / samples.length;
-    }
-
-    private float calculateFrequency(float[] samples) {
-        // Detectar picos en la señal para estimar frecuencia de pasos
-        int peakCount = 0;
-        float mean = 0;
-
-        for (float sample : samples) {
-            mean += sample;
-        }
-        mean /= samples.length;
-
-        // Contar cruces por encima de la media (picos)
-        boolean aboveMean = samples[0] > mean;
-        for (int i = 1; i < samples.length; i++) {
-            boolean currentAboveMean = samples[i] > mean;
-            if (currentAboveMean && !aboveMean) {
-                peakCount++;
-            }
-            aboveMean = currentAboveMean;
-        }
-
-        // Frecuencia en Hz (muestras por segundo / muestras totales * picos)
-        // Con SAMPLE_SIZE=20 y WALKING_CHECK_INTERVAL=250ms, tenemos 4 análisis por
-        // segundo
-        float samplesPerSecond = 1000.0f / WALKING_CHECK_INTERVAL;
-        float frequency = (peakCount * samplesPerSecond) / SAMPLE_SIZE;
-
-        return frequency;
     }
 
     private void detectPhoneUsage(float gyroX, float gyroY, float gyroZ,
@@ -443,7 +682,26 @@ public class MainActivity extends AppCompatActivity
 
     private void detectWalkingAndPhoneUse() {
         boolean previousState = isWalkingAndUsingPhone;
-        isWalkingAndUsingPhone = isWalking && isUsingPhone;
+
+        // Validación robusta: requiere caminata confirmada + uso del teléfono
+        // Evita alertas por un solo paso o movimientos aislados
+        long now = System.currentTimeMillis();
+        int stepsInLast2Seconds = 0;
+
+        // Contar pasos recientes (últimos 2 segundos)
+        for (long stepTime : recentStepTimes) {
+            if (stepTime > 0 && (now - stepTime) < 2000) {
+                stepsInLast2Seconds++;
+            }
+        }
+
+        // Confirmar caminata: al menos 2 pasos en 2 segundos
+        boolean walkingConfirmed = isWalking && stepsInLast2Seconds >= 2;
+
+        // Confirmar uso del teléfono (puede mantener tu validación de gyro)
+        boolean phoneConfirmed = isUsingPhone;
+
+        isWalkingAndUsingPhone = walkingConfirmed && phoneConfirmed;
 
         // Construir mensaje de estado detallado
         String status = "";
@@ -686,16 +944,56 @@ public class MainActivity extends AppCompatActivity
 
     /**
      * Inicializa o recupera la sesión actual (usuarios registrados y anónimos)
+     * SIEMPRE crea una nueva sesión al abrir la app
      */
     private void initializeSession() {
         Log.d("SESSION", "=== INICIANDO PROCESO DE SESIÓN ===");
 
         long existingSessionId = preferencesManager.getSessionId();
+        long sessionStartTime = preferencesManager.getSessionStart();
+        long currentTime = System.currentTimeMillis();
 
-        // Si ya hay una sesión activa, usarla
+        // Si hay una sesión previa, validar si es muy antigua (>5 minutos)
         if (existingSessionId != -1) {
-            Log.i("SESSION", "Sesión existente recuperada: " + existingSessionId);
-            return;
+            long sessionAge = currentTime - sessionStartTime;
+            boolean isSessionOld = sessionAge > 5 * 60 * 1000; // 5 minutos
+
+            if (isSessionOld) {
+                Log.w("SESSION", String.format(
+                        "Sesión antigua detectada: %d (edad: %.1f min) - Limpiando localmente",
+                        existingSessionId, sessionAge / 60000.0));
+
+                // Sesión muy antigua, solo limpiar local sin intentar finalizar en backend
+                preferencesManager.setSessionId(-1);
+                preferencesManager.setSessionStart(0);
+            } else {
+                Log.w("SESSION", String.format(
+                        "Sesión reciente sin finalizar: %d (edad: %.1f seg) - Finalizando en backend",
+                        existingSessionId, sessionAge / 1000.0));
+
+                // Sesión reciente, intentar finalizar en backend
+                String token = preferencesManager.getUserToken();
+                ApiService.endSession(existingSessionId, token, new ApiService.ApiCallback() {
+                    @Override
+                    public void onSuccess(JSONObject response) {
+                        Log.i("SESSION", "Sesión anterior finalizada exitosamente");
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        // Si el error es "ya finalizada", está OK
+                        if (error.contains("ya ha sido finalizada")) {
+                            Log.i("SESSION", "Sesión ya estaba finalizada en el backend");
+                        } else {
+                            Log.e("SESSION", "Error al finalizar sesión anterior: " + error);
+                        }
+                    }
+                });
+
+                // Limpiar sessionId local inmediatamente
+                preferencesManager.setSessionId(-1);
+                preferencesManager.setSessionStart(0);
+            }
         }
 
         // Determinar userId: 1 para anónimo, userId real para registrados
@@ -715,7 +1013,7 @@ public class MainActivity extends AppCompatActivity
 
         // Verificar/registrar dispositivo primero
         ensureDeviceRegistered(userId, token, isAnonymous, () -> {
-            // Una vez registrado el dispositivo, crear sesión
+            // Una vez registrado el dispositivo, crear sesión NUEVA
             createNewSession(userId, token, isAnonymous);
         });
     }
@@ -834,6 +1132,9 @@ public class MainActivity extends AppCompatActivity
                         preferencesManager.setSessionId(sessionId);
                         preferencesManager.setSessionStart(System.currentTimeMillis());
 
+                        // Reiniciar estado de detección de pasos para nueva sesión
+                        resetStepDetection();
+
                         Log.i("SESSION", String.format(
                                 "Sesión iniciada exitosamente: %d (Usuario: %s)",
                                 sessionId, isAnonymous ? "ANÓNIMO" : "REGISTRADO"));
@@ -848,6 +1149,54 @@ public class MainActivity extends AppCompatActivity
                 Log.e("SESSION", "Error al iniciar sesión: " + error);
             }
         });
+    }
+
+    /**
+     * Reinicia todo el estado de detección de pasos
+     * Se llama al iniciar una nueva sesión
+     */
+    private void resetStepDetection() {
+        // Reiniciar buffers
+        accBuffer = new float[SAMPLE_SIZE];
+        bufferIndex = 0;
+        samplesCollected = 0;
+        bufferReady = false;
+
+        // Reiniciar warm-up
+        detectionStartTime = 0;
+
+        // Reiniciar filtros
+        gravity = new float[3]; // Reiniciar vector de gravedad
+        accFiltered = 0;
+        accMean = 0.0f; // Reiniciar a 0 (se inicializa con verticalAcc)
+
+        // Reiniciar detección de picos
+        aboveThreshold = false;
+        lastPeakValue = 0;
+        lastStepTime = 0;
+
+        // Reiniciar contadores
+        stepCount = 0;
+        isWalking = false;
+        walkingSpeed = "Ninguna";
+        currentVariance = 0.0f;
+
+        // Reiniciar métricas avanzadas
+        verticalAcc = 0.0f;
+        dynamicThreshold = 0.0f;
+        stdDev = 0.0f;
+
+        // Reiniciar ventana de validación
+        recentStepTimes = new long[STEPS_WINDOW];
+        stepTimeIndex = 0;
+
+        // Reiniciar alertas
+        totalAlerts = 0;
+
+        // Reiniciar throttling de envío de datos
+        lastDataSendTime = 0;
+
+        Log.i("STEP_DETECTION", "Estado de detección de pasos reiniciado");
     }
 
     private boolean isFinalizingSession = false;
