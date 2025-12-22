@@ -27,7 +27,8 @@ public class StatisticsFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_statistics, container, false);
 
         preferencesManager = new PreferencesManager(requireContext());
@@ -50,13 +51,11 @@ public class StatisticsFragment extends Fragment {
     }
 
     private void loadStatistics() {
-        // Obtener datos de pasos desde MainActivity
         if (getActivity() instanceof MainActivity) {
             MainActivity activity = (MainActivity) getActivity();
             tvTotalSteps.setText(String.valueOf(activity.getStepCount()));
         }
 
-        // Calcular tiempo de sesión
         long sessionStart = preferencesManager.getSessionStart();
         if (sessionStart > 0) {
             long sessionDuration = System.currentTimeMillis() - sessionStart;
@@ -80,7 +79,8 @@ public class StatisticsFragment extends Fragment {
         ApiService.getAlertasBySession(sessionId, token, new ApiService.ApiCallback() {
             @Override
             public void onSuccess(JSONObject response) {
-                if (getActivity() == null) return;
+                if (getActivity() == null)
+                    return;
 
                 getActivity().runOnUiThread(() -> {
                     try {
@@ -111,7 +111,8 @@ public class StatisticsFragment extends Fragment {
 
             @Override
             public void onError(String error) {
-                if (getActivity() == null) return;
+                if (getActivity() == null)
+                    return;
 
                 getActivity().runOnUiThread(() -> {
                     Log.e("STATISTICS", "Error al obtener alertas: " + error);
@@ -154,16 +155,14 @@ public class StatisticsFragment extends Fragment {
                 }
             }
 
-            // Actualizar UI
             tvTotalAlerts.setText(String.valueOf(totalAlerts));
             tvAlertasLow.setText(String.valueOf(lowSeverity));
             tvAlertasMedium.setText(String.valueOf(mediumSeverity));
             tvAlertasHigh.setText(String.valueOf(highSeverity));
 
             Log.i("STATISTICS", String.format(
-                "Estadísticas actualizadas - Total: %d, Baja: %d, Media: %d, Alta: %d",
-                totalAlerts, lowSeverity, mediumSeverity, highSeverity
-            ));
+                    "Estadísticas actualizadas - Total: %d, Baja: %d, Media: %d, Alta: %d",
+                    totalAlerts, lowSeverity, mediumSeverity, highSeverity));
 
             // Si hay alertas, ocultar mensaje de "no hay datos"
             if (totalAlerts > 0) {

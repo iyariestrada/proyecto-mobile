@@ -14,8 +14,8 @@ public class Alerta {
     private String createdAt;
 
     public Alerta(long idAlerta, long idSesion, long idUsuario, String tipoAlerta,
-                  String severidad, String descripcion, JSONObject contexto,
-                  String detectedAt, String createdAt) {
+            String severidad, String descripcion, JSONObject contexto,
+            String detectedAt, String createdAt) {
         this.idAlerta = idAlerta;
         this.idSesion = idSesion;
         this.idUsuario = idUsuario;
@@ -28,27 +28,53 @@ public class Alerta {
     }
 
     // Getters
-    public long getIdAlerta() { return idAlerta; }
-    public long getIdSesion() { return idSesion; }
-    public long getIdUsuario() { return idUsuario; }
-    public String getTipoAlerta() { return tipoAlerta; }
-    public String getSeveridad() { return severidad; }
-    public String getDescripcion() { return descripcion; }
-    public JSONObject getContexto() { return contexto; }
-    public String getDetectedAt() { return detectedAt; }
-    public String getCreatedAt() { return createdAt; }
+    public long getIdAlerta() {
+        return idAlerta;
+    }
+
+    public long getIdSesion() {
+        return idSesion;
+    }
+
+    public long getIdUsuario() {
+        return idUsuario;
+    }
+
+    public String getTipoAlerta() {
+        return tipoAlerta;
+    }
+
+    public String getSeveridad() {
+        return severidad;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public JSONObject getContexto() {
+        return contexto;
+    }
+
+    public String getDetectedAt() {
+        return detectedAt;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
 
     // Helper para obtener color según severidad
     public int getSeveridadColor() {
         switch (severidad.toLowerCase()) {
             case "alta":
-                return android.graphics.Color.parseColor("#f44336"); // Rojo
+                return android.graphics.Color.parseColor("#f44336");
             case "media":
-                return android.graphics.Color.parseColor("#ff9800"); // Naranja
+                return android.graphics.Color.parseColor("#ff9800");
             case "baja":
-                return android.graphics.Color.parseColor("#4caf50"); // Verde
+                return android.graphics.Color.parseColor("#4caf50");
             default:
-                return android.graphics.Color.parseColor("#9e9e9e"); // Gris
+                return android.graphics.Color.parseColor("#9e9e9e");
         }
     }
 
@@ -56,13 +82,13 @@ public class Alerta {
     public int getSeveridadBackgroundColor() {
         switch (severidad.toLowerCase()) {
             case "alta":
-                return android.graphics.Color.parseColor("#ffebee"); // Rojo claro
+                return android.graphics.Color.parseColor("#ffebee");
             case "media":
-                return android.graphics.Color.parseColor("#fff3e0"); // Naranja claro
+                return android.graphics.Color.parseColor("#fff3e0");
             case "baja":
-                return android.graphics.Color.parseColor("#e8f5e9"); // Verde claro
+                return android.graphics.Color.parseColor("#e8f5e9");
             default:
-                return android.graphics.Color.parseColor("#f5f5f5"); // Gris claro
+                return android.graphics.Color.parseColor("#f5f5f5");
         }
     }
 

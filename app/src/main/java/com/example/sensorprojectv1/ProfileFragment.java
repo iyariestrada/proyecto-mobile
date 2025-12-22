@@ -23,7 +23,8 @@ public class ProfileFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
 
         preferencesManager = new PreferencesManager(requireContext());
@@ -38,20 +39,15 @@ public class ProfileFragment extends Fragment {
         cardUserInfo = view.findViewById(R.id.cardUserInfo);
         cardNotLoggedIn = view.findViewById(R.id.cardNotLoggedIn);
 
-        // Cargar información del usuario
         loadUserInfo();
 
-        // Listener del botón logout
         btnLogout.setOnClickListener(v -> performLogout());
 
-        // Listener del botón login desde perfil
         btnProfileLogin.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(), LoginActivity.class);
             startActivity(intent);
-            // NO cerrar MainActivity - el usuario volverá aquí después del login
         });
 
-        // Listener del botón editar perfil
         btnEditProfile.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(), EditProfileActivity.class);
             startActivity(intent);
@@ -102,7 +98,6 @@ public class ProfileFragment extends Fragment {
             ApiService.endSession(sessionId, token, new ApiService.ApiCallback() {
                 @Override
                 public void onSuccess(org.json.JSONObject response) {
-                    // Sesión finalizada exitosamente en el servidor
                     android.util.Log.i("LOGOUT", "Sesión finalizada en el servidor");
                     completeLogout();
                 }
@@ -122,7 +117,8 @@ public class ProfileFragment extends Fragment {
 
     private void completeLogout() {
         // Asegurar que todo se ejecute en el thread principal
-        if (getActivity() == null) return;
+        if (getActivity() == null)
+            return;
 
         getActivity().runOnUiThread(() -> {
             // Detener mediciones de sensores si es MainActivity
@@ -137,9 +133,6 @@ public class ProfileFragment extends Fragment {
             android.util.Log.i("LOGOUT", "Datos de usuario limpiados completamente");
 
             Toast.makeText(requireContext(), "Sesión cerrada", Toast.LENGTH_SHORT).show();
-
-            // NO iniciar sesión anónima automáticamente
-            // El usuario decidirá en LoginActivity si inicia sesión, continúa anónimo o cierra la app
 
             // Redirigir a LoginActivity
             Intent intent = new Intent(requireContext(), LoginActivity.class);

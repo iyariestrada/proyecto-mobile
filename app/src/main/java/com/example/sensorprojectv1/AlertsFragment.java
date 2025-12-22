@@ -35,12 +35,12 @@ public class AlertsFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_alerts, container, false);
 
         preferencesManager = new PreferencesManager(requireContext());
 
-        // Inicializar vistas
         recyclerViewAlerts = view.findViewById(R.id.recyclerViewAlerts);
         layoutContent = view.findViewById(R.id.layoutContent);
         layoutEmpty = view.findViewById(R.id.layoutEmpty);
@@ -50,23 +50,19 @@ public class AlertsFragment extends Fragment {
         tvErrorMessage = view.findViewById(R.id.tvErrorMessage);
         btnRetry = view.findViewById(R.id.btnRetry);
 
-        // Configurar RecyclerView
         alertas = new ArrayList<>();
         adapter = new AlertsAdapter(alertas, this::onAlertClick);
         recyclerViewAlerts.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerViewAlerts.setAdapter(adapter);
 
-        // Botón reintentar
         btnRetry.setOnClickListener(v -> loadAlertas());
 
-        // Cargar alertas
         loadAlertas();
 
         return view;
     }
 
     private void loadAlertas() {
-        // Verificar si el usuario está logueado
         if (!preferencesManager.isUserLoggedIn()) {
             showEmptyState("Inicia sesión para ver tu historial de alertas");
             return;
@@ -85,7 +81,8 @@ public class AlertsFragment extends Fragment {
         ApiService.getAlertasByUsuario(userId, token, new ApiService.ApiCallback() {
             @Override
             public void onSuccess(JSONObject response) {
-                if (getActivity() == null) return;
+                if (getActivity() == null)
+                    return;
 
                 getActivity().runOnUiThread(() -> {
                     try {
@@ -134,7 +131,8 @@ public class AlertsFragment extends Fragment {
 
             @Override
             public void onError(String error) {
-                if (getActivity() == null) return;
+                if (getActivity() == null)
+                    return;
 
                 getActivity().runOnUiThread(() -> {
                     Log.e("ALERTS_FRAGMENT", "Error al cargar alertas: " + error);
@@ -145,7 +143,6 @@ public class AlertsFragment extends Fragment {
     }
 
     private void onAlertClick(Alerta alerta) {
-        // Mostrar detalles de la alerta
         StringBuilder details = new StringBuilder();
         details.append("Alerta #").append(alerta.getIdAlerta()).append("\n\n");
         details.append("Tipo: ").append(alerta.getTipoAlertaTexto()).append("\n");
@@ -210,7 +207,6 @@ public class AlertsFragment extends Fragment {
         layoutEmpty.setVisibility(View.VISIBLE);
         layoutError.setVisibility(View.GONE);
 
-        // Opcionalmente actualizar el mensaje vacío
         TextView tvEmptyMessage = layoutEmpty.findViewById(R.id.tvEmptyMessage);
         if (tvEmptyMessage != null) {
             tvEmptyMessage.setText(message);
@@ -229,7 +225,7 @@ public class AlertsFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // Recargar alertas cuando el fragment vuelve a ser visible
+        // Recargar alertas cuando el fragment vuelve hacer visible
         if (preferencesManager.isUserLoggedIn()) {
             loadAlertas();
         }

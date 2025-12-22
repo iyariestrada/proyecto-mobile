@@ -26,7 +26,6 @@ public class EditProfileActivity extends AppCompatActivity {
 
         preferencesManager = new PreferencesManager(this);
 
-        // Configurar ActionBar
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("Editar Perfil");
@@ -61,7 +60,6 @@ public class EditProfileActivity extends AppCompatActivity {
         String name = etEditName.getText().toString().trim();
         String email = etEditEmail.getText().toString().trim();
 
-        // Validaciones
         if (TextUtils.isEmpty(name)) {
             etEditName.setError("El nombre es requerido");
             etEditName.requestFocus();
@@ -100,7 +98,6 @@ public class EditProfileActivity extends AppCompatActivity {
                         boolean success = response.getBoolean("success");
 
                         if (success) {
-                            // Actualizar datos locales
                             preferencesManager.setUserName(name);
                             preferencesManager.setUserEmail(email);
 
@@ -108,7 +105,7 @@ public class EditProfileActivity extends AppCompatActivity {
                                     "Cuenta actualizada exitosamente",
                                     Toast.LENGTH_SHORT).show();
 
-                            finish(); // Volver atrás
+                            finish();
                         } else {
                             String errorMsg = response.optString("message", "Error al actualizar");
                             Toast.makeText(EditProfileActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
@@ -193,7 +190,6 @@ public class EditProfileActivity extends AppCompatActivity {
                                             "Contrasena cambiada exitosamente",
                                             Toast.LENGTH_SHORT).show();
 
-                                    // Limpiar campos
                                     etCurrentPassword.setText("");
                                     etNewPassword.setText("");
                                     etConfirmNewPassword.setText("");

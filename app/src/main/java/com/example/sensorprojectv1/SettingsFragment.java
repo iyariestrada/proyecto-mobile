@@ -19,7 +19,8 @@ public class SettingsFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_settings, container, false);
 
         preferencesManager = new PreferencesManager(requireContext());
@@ -30,7 +31,6 @@ public class SettingsFragment extends Fragment {
         switchParticipate = view.findViewById(R.id.switchParticipate);
         tvParticipateDescription = view.findViewById(R.id.tvParticipateDescription);
 
-        // Cargar configuraciones guardadas
         loadSettings();
 
         // Listeners

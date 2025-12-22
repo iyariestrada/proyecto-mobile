@@ -45,10 +45,8 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        // Botón Registrar
         btnRegister.setOnClickListener(v -> performRegister());
 
-        // Ir a Login
         tvGoToLogin.setOnClickListener(v -> {
             finish(); // Volver a LoginActivity
         });
@@ -97,7 +95,7 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        // Validar requisitos de contraseña (similar a la web)
+        // Validar requisitos de contraseña
         if (!validatePassword(password)) {
             etRegisterPassword.setError("La contrasena no cumple todos los requisitos");
             etRegisterPassword.requestFocus();
@@ -119,11 +117,9 @@ public class RegisterActivity extends AppCompatActivity {
         // Guardar preferencia de participación
         boolean participateInStudy = cbParticipateStudy.isChecked();
 
-        // Deshabilitar botón mientras se procesa
         btnRegister.setEnabled(false);
         btnRegister.setText("Creando cuenta...");
 
-        // Llamar a la API
         ApiService.registerNewUser(name, email, password, confirmPassword, new ApiService.ApiCallback() {
             @Override
             public void onSuccess(JSONObject response) {
@@ -170,9 +166,6 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private boolean validatePassword(String password) {
-        // Validaciones de contraseña
-        // Mínimo 6 caracteres (ya validado antes)
-        // Puede incluir más validaciones si son requeridas por el backend
         return password.length() >= 6;
     }
 }

@@ -29,7 +29,6 @@ public class HomeFragment extends Fragment {
 
         preferencesManager = new PreferencesManager(requireContext());
 
-        // Inicializar vistas
         tvWelcome = view.findViewById(R.id.tvWelcome);
         tvUserStatus = view.findViewById(R.id.tvUserStatus);
         layoutLoginButtons = view.findViewById(R.id.layoutLoginButtons);
@@ -39,10 +38,8 @@ public class HomeFragment extends Fragment {
         textViewGyro = view.findViewById(R.id.textViewGyro);
         textViewAcc = view.findViewById(R.id.textViewAcc);
 
-        // Configurar según estado de usuario
         updateUserUI();
 
-        // Botones de login/registro
         btnLogin.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(), LoginActivity.class);
             startActivity(intent);

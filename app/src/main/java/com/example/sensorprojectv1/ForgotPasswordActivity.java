@@ -30,7 +30,6 @@ public class ForgotPasswordActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_forgot_password);
 
-        // Configurar ActionBar
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("Recuperar Contraseña");
@@ -194,7 +193,8 @@ public class ForgotPasswordActivity extends AppCompatActivity {
         }
 
         if (!isStrongPassword(newPassword)) {
-            etNewPassword.setError("La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial");
+            etNewPassword.setError(
+                    "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial");
             etNewPassword.requestFocus();
             return;
         }
@@ -273,7 +273,8 @@ public class ForgotPasswordActivity extends AppCompatActivity {
     }
 
     private boolean isStrongPassword(String password) {
-        if (password.length() < 8) return false;
+        if (password.length() < 8)
+            return false;
 
         boolean hasUpper = false;
         boolean hasLower = false;
@@ -281,10 +282,14 @@ public class ForgotPasswordActivity extends AppCompatActivity {
         boolean hasSpecial = false;
 
         for (char c : password.toCharArray()) {
-            if (Character.isUpperCase(c)) hasUpper = true;
-            else if (Character.isLowerCase(c)) hasLower = true;
-            else if (Character.isDigit(c)) hasDigit = true;
-            else if ("!@#$%^&*(),.?\":{}|<>".indexOf(c) >= 0) hasSpecial = true;
+            if (Character.isUpperCase(c))
+                hasUpper = true;
+            else if (Character.isLowerCase(c))
+                hasLower = true;
+            else if (Character.isDigit(c))
+                hasDigit = true;
+            else if ("!@#$%^&*(),.?\":{}|<>".indexOf(c) >= 0)
+                hasSpecial = true;
         }
 
         return hasUpper && hasLower && hasDigit && hasSpecial;

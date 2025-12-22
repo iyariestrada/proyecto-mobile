@@ -31,19 +31,17 @@ public class LoginActivity extends AppCompatActivity {
 
         preferencesManager = new PreferencesManager(this);
 
-        // CRÍTICO: Verificar si hay sesión activa Y válida
-        // No confiar ciegamente en SharedPreferences (pueden ser de instalación anterior)
+        // Verificar si hay sesión activa y válida
         if (preferencesManager.isUserLoggedIn()) {
             // Verificar si el token es válido antes de saltar a MainActivity
             String token = preferencesManager.getUserToken();
             long userId = preferencesManager.getUserId();
 
             if (token != null && !token.isEmpty() && userId != -1) {
-                // Validar token con el backend
                 validateSessionAndProceed(token, userId);
-                return; // Esperar resultado de validación
+                return;
             } else {
-                // Token inválido o faltante → limpiar sesión corrupta
+                // Token inválido o faltante - limpiar sesión corrupta
                 android.util.Log.w("LOGIN", "Sesión corrupta detectada - limpiando datos");
                 preferencesManager.logout();
             }
@@ -66,47 +64,49 @@ public class LoginActivity extends AppCompatActivity {
         // RECOMENDACIÓN: Agregar endpoint /api/auth/validate en el backend
         goToMainActivity();
 
-        /* IMPLEMENTACIÓN RECOMENDADA (comentada para no romper el flujo actual):
-        ApiService.validateToken(token, new ApiService.ApiCallback() {
-            @Override
-            public void onSuccess(JSONObject response) {
-                runOnUiThread(() -> {
-                    try {
-                        if (response.getBoolean("valid")) {
-                            // Token válido → ir a MainActivity
-                            goToMainActivity();
-                        } else {
-                            // Token expirado → limpiar y mostrar login
-                            preferencesManager.logout();
-                            initializeViews();
-                            setupListeners();
-                            Toast.makeText(LoginActivity.this,
-                                "Sesión expirada - Por favor inicia sesión nuevamente",
-                                Toast.LENGTH_LONG).show();
-                        }
-                    } catch (Exception e) {
-                        // Error al validar → limpiar y mostrar login
-                        preferencesManager.logout();
-                        initializeViews();
-                        setupListeners();
-                    }
-                });
-            }
-
-            @Override
-            public void onError(String error) {
-                runOnUiThread(() -> {
-                    // Error de red o backend → limpiar y mostrar login
-                    preferencesManager.logout();
-                    initializeViews();
-                    setupListeners();
-                    Toast.makeText(LoginActivity.this,
-                        "No se pudo verificar la sesión",
-                        Toast.LENGTH_SHORT).show();
-                });
-            }
-        });
-        */
+        /*
+         * IMPLEMENTACIÓN RECOMENDADA (comentada para no romper el flujo actual):
+         * ApiService.validateToken(token, new ApiService.ApiCallback() {
+         * 
+         * @Override
+         * public void onSuccess(JSONObject response) {
+         * runOnUiThread(() -> {
+         * try {
+         * if (response.getBoolean("valid")) {
+         * // Token válido → ir a MainActivity
+         * goToMainActivity();
+         * } else {
+         * // Token expirado → limpiar y mostrar login
+         * preferencesManager.logout();
+         * initializeViews();
+         * setupListeners();
+         * Toast.makeText(LoginActivity.this,
+         * "Sesión expirada - Por favor inicia sesión nuevamente",
+         * Toast.LENGTH_LONG).show();
+         * }
+         * } catch (Exception e) {
+         * // Error al validar → limpiar y mostrar login
+         * preferencesManager.logout();
+         * initializeViews();
+         * setupListeners();
+         * }
+         * });
+         * }
+         * 
+         * @Override
+         * public void onError(String error) {
+         * runOnUiThread(() -> {
+         * // Error de red o backend → limpiar y mostrar login
+         * preferencesManager.logout();
+         * initializeViews();
+         * setupListeners();
+         * Toast.makeText(LoginActivity.this,
+         * "No se pudo verificar la sesión",
+         * Toast.LENGTH_SHORT).show();
+         * });
+         * }
+         * });
+         */
     }
 
     private void initializeViews() {
@@ -119,22 +119,18 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        // Botón Login
         btnLogin.setOnClickListener(v -> performLogin());
 
-        // Ir a Registro
         tvGoToRegister.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, RegisterActivity.class);
             startActivity(intent);
         });
 
-        // Olvidé contraseña
         tvForgotPassword.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, ForgotPasswordActivity.class);
             startActivity(intent);
         });
 
-        // Continuar sin cuenta (modo anónimo)
         tvContinueAnonymous.setOnClickListener(v -> {
             Toast.makeText(this, "Modo anonimo: No tendras acceso al historial de alertas", Toast.LENGTH_LONG).show();
             goToMainActivity();
@@ -145,7 +141,6 @@ public class LoginActivity extends AppCompatActivity {
         String email = etLoginEmail.getText().toString().trim();
         String password = etLoginPassword.getText().toString().trim();
 
-        // Validaciones
         if (TextUtils.isEmpty(email)) {
             etLoginEmail.setError("Ingresa tu correo");
             etLoginEmail.requestFocus();
@@ -170,11 +165,9 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        // Deshabilitar botón mientras se procesa
         btnLogin.setEnabled(false);
         btnLogin.setText("Iniciando sesion...");
 
-        // Llamar a la API
         ApiService.login(email, password, new ApiService.ApiCallback() {
             @Override
             public void onSuccess(JSONObject response) {
@@ -186,7 +179,6 @@ public class LoginActivity extends AppCompatActivity {
                             JSONObject user = response.getJSONObject("user");
                             String token = response.getString("token");
 
-                            // Guardar datos del usuario
                             preferencesManager.setUserLoggedIn(true);
                             preferencesManager.setUserId(user.getInt("id"));
                             preferencesManager.setUserName(user.getString("nombre"));
@@ -198,10 +190,7 @@ public class LoginActivity extends AppCompatActivity {
                                     "Bienvenido " + user.getString("nombre"),
                                     Toast.LENGTH_SHORT).show();
 
-                            // Registrar dispositivo antes de ir a MainActivity
                             registerDeviceAndGoToMain(token);
-                            
-
                         } else {
                             Toast.makeText(LoginActivity.this,
                                     "Credenciales incorrectas",
@@ -232,13 +221,11 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void registerDeviceAndGoToMain(String token) {
-        // Obtener información del dispositivo
         String deviceUUID = preferencesManager.getDeviceUUID();
         if (deviceUUID.isEmpty()) {
             deviceUUID = android.provider.Settings.Secure.getString(
-                getContentResolver(),
-                android.provider.Settings.Secure.ANDROID_ID
-            );
+                    getContentResolver(),
+                    android.provider.Settings.Secure.ANDROID_ID);
             preferencesManager.setDeviceUUID(deviceUUID);
         }
 
@@ -247,45 +234,43 @@ public class LoginActivity extends AppCompatActivity {
         long userId = preferencesManager.getUserId();
 
         ApiService.registerDevice(userId, deviceUUID, deviceModel, androidVersion, token,
-            new ApiService.ApiCallback() {
-                @Override
-                public void onSuccess(JSONObject response) {
-                    runOnUiThread(() -> {
-                        try {
-                            if (response.getBoolean("success")) {
-                                JSONObject deviceData = response.getJSONObject("data");
-                                long deviceId = deviceData.getLong("id_dispositivo");
+                new ApiService.ApiCallback() {
+                    @Override
+                    public void onSuccess(JSONObject response) {
+                        runOnUiThread(() -> {
+                            try {
+                                if (response.getBoolean("success")) {
+                                    JSONObject deviceData = response.getJSONObject("data");
+                                    long deviceId = deviceData.getLong("id_dispositivo");
 
-                                // Guardar ID del dispositivo
-                                preferencesManager.setDeviceId(deviceId);
+                                    preferencesManager.setDeviceId(deviceId);
 
-                                // Ahora sí ir a MainActivity (que iniciará la sesión automáticamente)
-                                goToMainActivity();
-                            } else {
+                                    goToMainActivity();
+                                } else {
+                                    Toast.makeText(LoginActivity.this,
+                                            "Error al registrar dispositivo",
+                                            Toast.LENGTH_SHORT).show();
+                                    goToMainActivity();
+                                }
+                            } catch (Exception e) {
                                 Toast.makeText(LoginActivity.this,
-                                    "Error al registrar dispositivo",
-                                    Toast.LENGTH_SHORT).show();
+                                        "Error al procesar dispositivo",
+                                        Toast.LENGTH_SHORT).show();
                                 goToMainActivity();
                             }
-                        } catch (Exception e) {
-                            Toast.makeText(LoginActivity.this,
-                                "Error al procesar dispositivo",
-                                Toast.LENGTH_SHORT).show();
-                            goToMainActivity();
-                        }
-                    });
-                }
+                        });
+                    }
 
-                @Override
-                public void onError(String error) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(LoginActivity.this,
-                            "Advertencia: " + error,
-                            Toast.LENGTH_SHORT).show();
-                        goToMainActivity();
-                    });
-                }
-            });
+                    @Override
+                    public void onError(String error) {
+                        runOnUiThread(() -> {
+                            Toast.makeText(LoginActivity.this,
+                                    "Advertencia: " + error,
+                                    Toast.LENGTH_SHORT).show();
+                            goToMainActivity();
+                        });
+                    }
+                });
     }
 
     private void goToMainActivity() {

@@ -25,7 +25,6 @@ public class PreferencesManager {
         preferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
     }
 
-    // Alertas de sonido
     public void setSoundAlertEnabled(boolean enabled) {
         preferences.edit().putBoolean(KEY_SOUND_ALERT, enabled).apply();
     }
@@ -34,7 +33,6 @@ public class PreferencesManager {
         return preferences.getBoolean(KEY_SOUND_ALERT, true);
     }
 
-    // Alertas de vibración
     public void setVibrationAlertEnabled(boolean enabled) {
         preferences.edit().putBoolean(KEY_VIBRATION_ALERT, enabled).apply();
     }
@@ -43,7 +41,6 @@ public class PreferencesManager {
         return preferences.getBoolean(KEY_VIBRATION_ALERT, true);
     }
 
-    // Participación en el estudio
     public void setParticipateEnabled(boolean enabled) {
         preferences.edit().putBoolean(KEY_PARTICIPATE, enabled).apply();
     }
@@ -52,7 +49,6 @@ public class PreferencesManager {
         return preferences.getBoolean(KEY_PARTICIPATE, false);
     }
 
-    // Usuario
     public void setUserLoggedIn(boolean loggedIn) {
         preferences.edit().putBoolean(KEY_USER_LOGGED_IN, loggedIn).apply();
     }
@@ -133,10 +129,6 @@ public class PreferencesManager {
         return preferences.getLong(KEY_SESSION_START, 0);
     }
 
-    /**
-     * Limpia TODOS los datos del usuario al cerrar sesión
-     * NO preserva deviceId ni deviceUUID para evitar reutilizar datos del usuario anterior
-     */
     public void logout() {
         preferences.edit()
                 .putBoolean(KEY_USER_LOGGED_IN, false)
@@ -145,8 +137,8 @@ public class PreferencesManager {
                 .putString(KEY_USER_EMAIL, "")
                 .putString(KEY_USER_TOKEN, "")
                 .putString(KEY_USER_TYPE, "")
-                .putLong(KEY_DEVICE_ID, -1)        // Limpiar deviceId
-                .putString(KEY_DEVICE_UUID, "")    // Limpiar deviceUUID
+                .putLong(KEY_DEVICE_ID, -1)
+                .putString(KEY_DEVICE_UUID, "")
                 .putLong(KEY_SESSION_ID, -1)
                 .putLong(KEY_SESSION_START, 0)
                 .apply();

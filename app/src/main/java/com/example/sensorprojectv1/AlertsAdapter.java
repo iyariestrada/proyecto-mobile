@@ -87,17 +87,13 @@ public class AlertsAdapter extends RecyclerView.Adapter<AlertsAdapter.AlertViewH
             GradientDrawable badgeBackground = (GradientDrawable) tvSeveridadBadge.getBackground();
             badgeBackground.setColor(alerta.getSeveridadColor());
 
-            // Session ID
             tvSessionId.setText("Sesión #" + alerta.getIdSesion());
 
-            // Tipo y descripción
             tvTipoAlerta.setText(alerta.getTipoAlertaTexto());
             tvDescripcion.setText(alerta.getDescripcion());
 
-            // Fecha
             tvFecha.setText(formatDate(alerta.getDetectedAt()));
 
-            // Contexto (si existe)
             if (alerta.getContexto() != null) {
                 try {
                     // Velocidad de caminata
@@ -109,7 +105,6 @@ public class AlertsAdapter extends RecyclerView.Adapter<AlertsAdapter.AlertViewH
                         layoutVelocidad.setVisibility(View.GONE);
                     }
 
-                    // Pasos
                     if (alerta.getContexto().has("step_count")) {
                         int pasos = alerta.getContexto().getInt("step_count");
                         tvPasos.setText(String.valueOf(pasos));
@@ -126,7 +121,6 @@ public class AlertsAdapter extends RecyclerView.Adapter<AlertsAdapter.AlertViewH
                 layoutPasos.setVisibility(View.GONE);
             }
 
-            // Click listener
             btnVerDetalles.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onAlertClick(alerta);
@@ -136,14 +130,16 @@ public class AlertsAdapter extends RecyclerView.Adapter<AlertsAdapter.AlertViewH
 
         private String formatDate(String isoDate) {
             try {
-                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                        Locale.getDefault());
                 SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
                 Date date = inputFormat.parse(isoDate);
                 return outputFormat.format(date);
             } catch (Exception e) {
                 // Si falla el parsing, intentar formato sin milisegundos
                 try {
-                    SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault());
+                    SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'",
+                            Locale.getDefault());
                     SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
                     Date date = inputFormat.parse(isoDate);
                     return outputFormat.format(date);

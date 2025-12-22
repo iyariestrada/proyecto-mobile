@@ -41,12 +41,11 @@ public class MainActivity extends AppCompatActivity
     private float gyroX, gyroY, gyroZ;
     private float accX, accY, accZ;
 
-    // ===== STEP DETECTION - Basado en literatura científica =====
+    // ,STEP DETECTION
     // Referencias: Pan & Lin (2011), Zhao (2010) - Umbrales validados
     // Detección sobre eje vertical dinámico para uso activo del teléfono
 
-    // Configuración de buffer y warm-up
-    private static final int SAMPLE_SIZE = 25; // Ventana de análisis (~500ms con SENSOR_DELAY_GAME)
+    private static final int SAMPLE_SIZE = 25;
     private static final long WARM_UP_TIME_MS = 2000; // 2 segundos de warm-up
     private long detectionStartTime = 0; // Timestamp de inicio de detección
 
@@ -58,39 +57,34 @@ public class MainActivity extends AppCompatActivity
 
     // Restricciones temporales (ms) - Basado en cadencia humana
     // Caminata humana: 0.5-2.0 pasos/segundo → 500-2000ms entre pasos
-    private static final long MIN_STEP_INTERVAL = 300; // ~200 pasos/min (muy rápido)
-    private static final long MAX_STEP_INTERVAL = 2000; // ~30 pasos/min (muy lento)
+    private static final long MIN_STEP_INTERVAL = 300;// ~30 pasos/min (muy lento)
+    private static final long MAX_STEP_INTERVAL = 2000; // ~200 pasos/min (muy rápido)
 
     // Filtros para señal - Ajustados para mejor respuesta
-    private static final float ALPHA_LOW_PASS = 0.5f; // Filtro paso bajo más suave (permite más señal)
+    private static final float ALPHA_LOW_PASS = 0.5f; // Filtro paso bajo más suave
     private static final float ALPHA_HIGH_PASS = 0.95f; // Filtro paso alto más conservador
 
     // Filtro de gravedad - Recomendación oficial de Android
     private static final float ALPHA_GRAVITY = 0.8f; // Filtro low-pass para separar gravedad
     private float[] gravity = new float[3]; // Vector de gravedad filtrado
 
-    // Buffers y estado
     private float[] accBuffer = new float[SAMPLE_SIZE];
     private int bufferIndex = 0;
     private int samplesCollected = 0;
     private boolean bufferReady = false;
 
-    // Variables de filtrado
     private float accFiltered = 0; // Señal filtrada (paso bajo)
     private float accMean = 0.0f; // Media móvil para aceleración vertical
 
-    // Detección de picos
     private boolean aboveThreshold = false;
     private float lastPeakValue = 0;
     private long lastStepTime = 0;
 
-    // Contadores y estado
     private int stepCount = 0;
     private boolean isWalking = false;
     private String walkingSpeed = "Ninguna";
     private float currentVariance = 0.0f;
 
-    // Métricas avanzadas (para envío al backend)
     private float verticalAcc = 0.0f;
     private float dynamicThreshold = 0.0f;
     private float stdDev = 0.0f;
@@ -109,7 +103,7 @@ public class MainActivity extends AppCompatActivity
     private int totalAlerts = 0;
 
     // Throttling para envío de datos
-    private static final long DATA_SEND_INTERVAL_MS = 1000; // Enviar cada segundo (reducir carga en DB)
+    private static final long DATA_SEND_INTERVAL_MS = 1000; // Enviar cada segundo
     private long lastDataSendTime = 0;
 
     private BatteryManager batteryManager;
@@ -124,19 +118,15 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Inicializar PreferencesManager
         preferencesManager = new PreferencesManager(this);
 
         // Solo iniciar sesión si el usuario está autenticado o eligió continuar como
         // anónimo
-        // LoginActivity redirige aquí solo después de login o continuar anónimo
         initializeSession();
 
-        // Configurar Toolbar
         toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        // Configurar Navigation Drawer
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
@@ -147,16 +137,13 @@ public class MainActivity extends AppCompatActivity
         drawerLayout.addDrawerListener(toggle);
         toggle.syncState();
 
-        // Actualizar header con info de usuario
         updateNavigationHeader();
 
-        // Cargar fragment inicial
         if (savedInstanceState == null) {
             loadFragment(new HomeFragment());
             navigationView.setCheckedItem(R.id.nav_inicio);
         }
 
-        // Inicializar sensores
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         batteryManager = (BatteryManager) getSystemService(BATTERY_SERVICE);
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -243,38 +230,32 @@ public class MainActivity extends AppCompatActivity
         // Throttling: solo enviar cada 1 segundo
         long now = System.currentTimeMillis();
         if (now - lastDataSendTime < DATA_SEND_INTERVAL_MS) {
-            return; // Demasiado pronto, no enviar
+            return;
         }
 
         // Solo enviar datos si hay una sesión activa
         long sessionId = preferencesManager.getSessionId();
 
         if (sessionId == -1) {
-            return; // Sin sesión activa
+            return;
         }
 
         // Actualizar timestamp del último envío
         lastDataSendTime = now;
 
-        // NUEVO COMPORTAMIENTO:
         // - Usuarios anónimos: SIEMPRE envían datos (sin token)
         // - Usuarios registrados que participan: envían datos con token
-        // - Usuarios registrados que NO participan: envían datos SIN token (como anónimos)
-        //
-        // IMPORTANTE: La sesión (sessionId) determina qué userId se usa en el backend
-        // Solo necesitamos decidir si enviar token o no
+        // - Usuarios registrados que NO participan: envían datos SIN token (como
+        // anónimos)
 
         boolean isLoggedIn = preferencesManager.isUserLoggedIn();
         boolean isParticipating = preferencesManager.isParticipateEnabled();
 
-        // Determinar si enviar token (participantes registrados) o null (anónimos y no participantes)
         String tokenToSend;
 
         if (isLoggedIn && isParticipating) {
-            // Usuario registrado que participa → enviar con token
             tokenToSend = preferencesManager.getUserToken();
         } else {
-            // Usuario anónimo O usuario registrado que NO participa → enviar sin token
             tokenToSend = null;
         }
 
@@ -289,13 +270,11 @@ public class MainActivity extends AppCompatActivity
             json.put("gyro_y", gyroY);
             json.put("gyro_z", gyroZ);
 
-            json.put("step_count", stepCount);
-
             // Estado de detección
             json.put("is_walking", isWalking);
             json.put("is_using_phone", isUsingPhone);
+            json.put("step_count", stepCount);
 
-            // En sendSensorData(), AGREGAR:
             json.put("vertical_acceleration", verticalAcc); // Aceleración vertical proyectada
             json.put("gravity_x", gravity[0]); // Vector de gravedad
             json.put("gravity_y", gravity[1]);
@@ -312,7 +291,6 @@ public class MainActivity extends AppCompatActivity
             // Timestamp
             json.put("recorded_at", System.currentTimeMillis());
 
-            // Usar el token determinado anteriormente (null para anónimos y no participantes)
             ApiService.sendSensorData(sessionId, json, tokenToSend, new ApiService.ApiCallback() {
                 @Override
                 public void onSuccess(JSONObject response) {
@@ -333,8 +311,6 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
     }
-
-    /* PROCESS FUNCTIONS */
 
     private float getBatteryLevel() {
         if (batteryManager != null) {
@@ -384,7 +360,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     /**
-     * Detección de pasos basada en algoritmos científicos
+     * Detección de pasos
      * Referencias:
      * - Pan & Lin (2011): "An improved human activity recognition system"
      * - Zhao (2010): "A robust step counting algorithm"
@@ -397,17 +373,17 @@ public class MainActivity extends AppCompatActivity
      * 5. Umbrales adaptados para movimiento con teléfono
      */
     private void detectWalking(float accX, float accY, float accZ) {
-        // 1️⃣ SEPARAR GRAVEDAD correctamente (filtro low-pass recomendado por Android)
+        // SEPARAR GRAVEDAD correctamente (filtro low-pass recomendado por Android)
         gravity[0] = ALPHA_GRAVITY * gravity[0] + (1 - ALPHA_GRAVITY) * accX;
         gravity[1] = ALPHA_GRAVITY * gravity[1] + (1 - ALPHA_GRAVITY) * accY;
         gravity[2] = ALPHA_GRAVITY * gravity[2] + (1 - ALPHA_GRAVITY) * accZ;
 
-        // 2️⃣ ACELERACIÓN LINEAL (sin gravedad)
+        // ACELERACIÓN LINEAL (sin gravedad)
         float linX = accX - gravity[0];
         float linY = accY - gravity[1];
         float linZ = accZ - gravity[2];
 
-        // 3️⃣ PROYECCIÓN sobre eje VERTICAL DINÁMICO
+        // PROYECCIÓN sobre eje VERTICAL DINÁMICO
         // La gravedad define la vertical real, independiente de la orientación del
         // teléfono
         float gravityMagnitude = (float) Math.sqrt(
@@ -425,20 +401,20 @@ public class MainActivity extends AppCompatActivity
                 linY * gravity[1] +
                 linZ * gravity[2]) / gravityMagnitude;
 
-        // 4️⃣ FILTRO PASO BAJO (eliminar ruido de alta frecuencia)
+        // FILTRO PASO BAJO (eliminar ruido de alta frecuencia)
         accFiltered = ALPHA_LOW_PASS * accFiltered + (1 - ALPHA_LOW_PASS) * verticalAcc;
 
-        // 5️⃣ BUFFER CIRCULAR
+        // BUFFER CIRCULAR
         accBuffer[bufferIndex] = accFiltered;
         bufferIndex = (bufferIndex + 1) % SAMPLE_SIZE;
 
-        // 6️⃣ WARM-UP: Esperar tiempo suficiente antes de detectar
+        // Esperar antes de detectar
         long now = System.currentTimeMillis();
 
         // Inicializar timestamp en la primera muestra
         if (detectionStartTime == 0) {
             detectionStartTime = now;
-            accMean = verticalAcc; // CRÍTICO: inicializar con verticalAcc
+            accMean = verticalAcc; // inicializar con verticalAcc
             Log.i("STEP_WARMUP", "Iniciando warm-up de " + WARM_UP_TIME_MS + "ms");
         }
 
@@ -454,7 +430,7 @@ public class MainActivity extends AppCompatActivity
                 Log.d("STEP_WARMUP", String.format("Warm-up: %dms/%dms | Samples: %d | Vertical: %.2f | Mean: %.2f",
                         elapsedTime, WARM_UP_TIME_MS, samplesCollected, verticalAcc, accMean));
             }
-            return; // ⛔ NO detectar pasos aún
+            return;
         }
 
         samplesCollected++;
@@ -465,14 +441,14 @@ public class MainActivity extends AppCompatActivity
             Log.i("STEP_DETECTION", "Buffer listo - iniciando detección de pasos");
         }
 
-        // 7️⃣ FILTRO PASO ALTO (eliminar componente de drift)
+        // FILTRO PASO ALTO (eliminar componente de drift)
         // Media móvil exponencial que se adapta lentamente
         accMean = ALPHA_HIGH_PASS * accMean + (1 - ALPHA_HIGH_PASS) * accFiltered;
 
         // Señal centrada (elimina offset)
         float centeredAcc = accFiltered - accMean;
 
-        // 8️⃣ CÁLCULO DE UMBRAL DINÁMICO con stdDev CORREGIDA
+        // CÁLCULO DE UMBRAL DINÁMICO con stdDev
         // Calcular media REAL del buffer (no usar accMean que es una EMA)
         float bufferMean = calculateMean(accBuffer);
         stdDev = calculateStdDev(accBuffer, bufferMean);
@@ -480,7 +456,7 @@ public class MainActivity extends AppCompatActivity
                 STEP_THRESHOLD_MIN,
                 Math.min(STEP_THRESHOLD_MAX, stdDev * DYNAMIC_FACTOR));
 
-        // 9️⃣ DETECCIÓN DE PICO = PASO
+        // DETECCIÓN DE PICO = PASO
         // Algoritmo de cruce de umbral con histéresis
         if (centeredAcc > dynamicThreshold && !aboveThreshold) {
             // Cruce ascendente detectado
@@ -492,13 +468,11 @@ public class MainActivity extends AppCompatActivity
             lastPeakValue = centeredAcc;
 
         } else if (aboveThreshold && centeredAcc < dynamicThreshold * 0.5f) {
-            // Cruce descendente = FIN DE PICO → REGISTRAR PASO
+            // Cruce descendente = FIN DE PICO - REGISTRAR PASO
             aboveThreshold = false;
 
-            // CRÍTICO: Si es el primer paso (lastStepTime == 0), aceptarlo sin validar
-            // intervalo
+            // Si es el primer paso (lastStepTime == 0), aceptarlo sin validar intervalo
             if (lastStepTime == 0) {
-                // Primer paso detectado - registrar sin validación de intervalo
                 recentStepTimes[stepTimeIndex] = now;
                 stepTimeIndex = (stepTimeIndex + 1) % STEPS_WINDOW;
 
@@ -517,17 +491,15 @@ public class MainActivity extends AppCompatActivity
                 // Validar intervalo temporal (evitar pasos imposibles)
                 if (stepInterval > MIN_STEP_INTERVAL && stepInterval < MAX_STEP_INTERVAL) {
 
-                    // Registrar tiempo del paso
                     recentStepTimes[stepTimeIndex] = now;
                     stepTimeIndex = (stepTimeIndex + 1) % STEPS_WINDOW;
 
-                    // Validar patrón de pasos (evitar movimientos aislados)
+                    // Validar patrón de pasos
                     if (isValidStepPattern()) {
                         stepCount++;
                         lastStepTime = now;
                         isWalking = true;
 
-                        // Calcular velocidad de caminata basada en cadencia
                         updateWalkingSpeed(stepInterval);
 
                         Log.d("STEP_DETECTED", String.format(
@@ -544,7 +516,7 @@ public class MainActivity extends AppCompatActivity
             lastPeakValue = 0;
         }
 
-        // 🔟 VERIFICAR SI DEJÓ DE CAMINAR
+        // VERIFICAR SI DEJÓ DE CAMINAR
         // Si no hay pasos en 2.5s, asumir que está detenido
         if (lastStepTime > 0 && (now - lastStepTime > 2500)) {
             if (isWalking) {
@@ -553,18 +525,17 @@ public class MainActivity extends AppCompatActivity
             isWalking = false;
             walkingSpeed = "Ninguna";
 
-            // CRÍTICO: Si la pausa es MUY larga (>5s), reiniciar lastStepTime
+            // Si la pausa es MUY larga (>5s), reiniciar lastStepTime
             // Esto permite que el siguiente paso sea aceptado como "primer paso"
             if (now - lastStepTime > 5000) {
                 Log.i("STEP_DETECTION", "Pausa larga detectada - reiniciando contador de tiempo");
-                lastStepTime = 0; // El próximo paso será tratado como "primer paso"
+                lastStepTime = 0;
             }
         }
 
-        // 1️⃣1️⃣ CALCULAR VARIANZA (para compatibilidad con código existente)
         currentVariance = calculateVariance(accBuffer);
 
-        // 1️⃣2️⃣ LOG PERIÓDICO (cada 100 muestras ≈ cada 2s con SENSOR_DELAY_GAME)
+        // LOG PERIÓDICO (cada 100 muestras ≈ cada 2s con SENSOR_DELAY_GAME)
         if (samplesCollected % 100 == 0) {
             Log.d("STEP_STATUS", String.format(
                     "Vertical: %.2f | Filt: %.2f | Mean: %.2f | Centered: %.2f | " +
@@ -575,11 +546,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    /**
-     * Calcula la media real del buffer
-     * CRÍTICO: No usar accMean (que es una EMA), sino la media aritmética del
-     * buffer
-     */
     private float calculateMean(float[] buffer) {
         float sum = 0;
         for (float value : buffer) {
@@ -659,7 +625,7 @@ public class MainActivity extends AppCompatActivity
 
     private void detectPhoneUsage(float gyroX, float gyroY, float gyroZ,
             float accX, float accY, float accZ) {
-        // Magnitud del giroscopio (movimiento rotacional)
+        // Magnitud del giroscopio
         float gyroMagnitude = (float) Math.sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
 
         // Calcular orientación del teléfono
@@ -674,7 +640,6 @@ public class MainActivity extends AppCompatActivity
         boolean gyroActive = gyroMagnitude > PHONE_USE_GYRO_THRESHOLD;
         isUsingPhone = gyroActive || isPhoneOriented;
 
-        // Log detallado con códigos de detección
         String detectionReason = "";
         if (gyroActive && isPhoneOriented) {
             detectionReason = "GYRO+ORIENTACION";
@@ -710,15 +675,12 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        // Confirmar caminata: al menos 2 pasos en 2 segundos
         boolean walkingConfirmed = isWalking && stepsInLast2Seconds >= 2;
 
-        // Confirmar uso del teléfono (puede mantener tu validación de gyro)
         boolean phoneConfirmed = isUsingPhone;
 
         isWalkingAndUsingPhone = walkingConfirmed && phoneConfirmed;
 
-        // Construir mensaje de estado detallado
         String status = "";
         String statusColor = "#4CAF50";
 
@@ -736,7 +698,6 @@ public class MainActivity extends AppCompatActivity
             statusColor = "#4CAF50";
         }
 
-        // Información detallada
         status += String.format("\n\n--- DETECCION ---" +
                 "\nPasos totales: %d" +
                 "\nCaminando: %s" +
@@ -751,7 +712,6 @@ public class MainActivity extends AppCompatActivity
                 isUsingPhone ? "SI" : "NO",
                 totalAlerts);
 
-        // Log de estado combinado
         Log.i("DETECTION_STATUS", String.format(
                 "=== ESTADO GENERAL === | Caminando: %s (%s) | Telefono: %s | ALERTA: %s | Varianza: %.3f",
                 isWalking ? "SI" : "NO",
@@ -760,7 +720,6 @@ public class MainActivity extends AppCompatActivity
                 isWalkingAndUsingPhone ? "ACTIVA" : "NO",
                 currentVariance));
 
-        // Actualizar HomeFragment si está visible
         String finalStatus = status;
         runOnUiThread(() -> {
             if (homeFragment != null) {
@@ -812,10 +771,8 @@ public class MainActivity extends AppCompatActivity
         Log.d("SETTINGS", "Configuraciones de alerta actualizadas");
     }
 
-    /**
-     * Detiene las mediciones de sensores
-     * Llamado al cerrar sesión
-     */
+    /
+
     public void stopSensorMeasurements() {
         Log.d("SENSORS", "Deteniendo mediciones de sensores");
 
@@ -907,7 +864,6 @@ public class MainActivity extends AppCompatActivity
             contexto.put("screen_brightness", getScreenBrightness());
             contexto.put("alert_number", totalAlerts);
 
-            // Timestamp de detección
             long detectedAt = System.currentTimeMillis();
 
             Log.d("ALERT", String.format(
@@ -932,10 +888,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    /**
-     * Calcula la severidad de la alerta según la velocidad de caminata
-     * Lenta -> baja, Normal -> media, Rápida -> alta
-     */
     private String calculateSeverity(String walkingSpeed) {
         switch (walkingSpeed) {
             case "Lenta":
@@ -957,10 +909,6 @@ public class MainActivity extends AppCompatActivity
         return totalAlerts;
     }
 
-    /**
-     * Inicializa o recupera la sesión actual (usuarios registrados y anónimos)
-     * SIEMPRE crea una nueva sesión al abrir la app
-     */
     private void initializeSession() {
         Log.d("SESSION", "=== INICIANDO PROCESO DE SESIÓN ===");
 
@@ -1019,16 +967,17 @@ public class MainActivity extends AppCompatActivity
         boolean isAnonymous;
 
         if (!isLoggedIn) {
-            // Usuario NO logueado → anónimo
+            // Usuario NO logueado - anónimo
             userId = 1;
             token = null;
             isAnonymous = true;
             Log.d("SESSION", "Usuario ANÓNIMO detectado - usando userId=1");
         } else if (!isParticipating) {
-            // Usuario registrado que NO participa → tratado como anónimo (datos sin asociar)
-            userId = 1; // ← CAMBIO CRÍTICO: usar userId=1 para no participantes
-            token = null; // ← Sin token para que no se asocie al usuario
-            isAnonymous = true; // ← Marcar como anónimo para el backend
+            // Usuario registrado que NO participa - tratado como anónimo (datos sin
+            // asociar)
+            userId = 1; // usar userId=1 para no participantes
+            token = null; // Sin token para que no se asocie al usuario
+            isAnonymous = true; // Marcar como anónimo para el backend
             Log.d("SESSION", "Usuario REGISTRADO sin participación - usando userId=1 (anónimo)");
         } else {
             // Usuario registrado que SÍ participa → usar sus credenciales
@@ -1040,26 +989,20 @@ public class MainActivity extends AppCompatActivity
 
         // Verificar/registrar dispositivo primero
         ensureDeviceRegistered(userId, token, isAnonymous, () -> {
-            // Una vez registrado el dispositivo, crear sesión NUEVA
+            // Una vez registrado el dispositivo, crear sesión nueva
             createNewSession(userId, token, isAnonymous);
         });
     }
 
-    /**
-     * Inicializa una nueva sesión anónima después del logout
-     * Método público para ser llamado desde ProfileFragment
-     */
     public void initializeAnonymousSession() {
         Log.d("SESSION", "=== INICIANDO SESIÓN ANÓNIMA DESPUÉS DE LOGOUT ===");
 
-        // Forzar creación de nueva sesión anónima
         long userId = 1; // Usuario anónimo
         String token = null;
         boolean isAnonymous = true;
 
-        // Verificar/registrar dispositivo primero
+        // Verificar/registrar dispositivo primero, despues crear sesión
         ensureDeviceRegistered(userId, token, isAnonymous, () -> {
-            // Una vez registrado el dispositivo, crear sesión
             createNewSession(userId, token, isAnonymous);
         });
     }
@@ -1067,12 +1010,10 @@ public class MainActivity extends AppCompatActivity
     /**
      * Asegura que el dispositivo esté registrado en el backend
      * El backend maneja la lógica de duplicados: mismo UUID con diferentes usuarios
-     * está permitido,
-     * pero no creará duplicados para la misma combinación UUID+userId
+     * está permitido, pero no creará duplicados para mismo UUID+userId
      */
     private void ensureDeviceRegistered(long userId, String token, boolean isAnonymous,
             Runnable onSuccess) {
-        // Obtener o generar device_uuid
         String deviceUUID = preferencesManager.getDeviceUUID();
         if (deviceUUID.isEmpty()) {
             deviceUUID = Settings.Secure.getString(
@@ -1093,8 +1034,8 @@ public class MainActivity extends AppCompatActivity
 
         // Siempre llamar al backend para registrar/verificar
         // El backend retornará el dispositivo existente si ya está registrado con este
-        // usuario
-        // O creará uno nuevo si es la primera vez que este usuario usa este UUID
+        // usuario o creará uno nuevo si es la primera vez que este usuario usa este
+        // UUID
         ApiService.registerDevice(userId, deviceUUID, deviceModel, androidVersion, token,
                 new ApiService.ApiCallback() {
                     @Override
@@ -1127,9 +1068,6 @@ public class MainActivity extends AppCompatActivity
                 });
     }
 
-    /**
-     * Crea una nueva sesión en el backend
-     */
     private void createNewSession(long userId, String token, boolean isAnonymous) {
         long deviceId = preferencesManager.getDeviceId();
 
@@ -1155,7 +1093,6 @@ public class MainActivity extends AppCompatActivity
 
                         Log.d("SESSION", "Sesión creada exitosamente: " + sessionId);
 
-                        // Guardar ID de sesión
                         preferencesManager.setSessionId(sessionId);
                         preferencesManager.setSessionStart(System.currentTimeMillis());
 
@@ -1178,12 +1115,7 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
-    /**
-     * Reinicia todo el estado de detección de pasos
-     * Se llama al iniciar una nueva sesión
-     */
     private void resetStepDetection() {
-        // Reiniciar buffers
         accBuffer = new float[SAMPLE_SIZE];
         bufferIndex = 0;
         samplesCollected = 0;
@@ -1228,10 +1160,6 @@ public class MainActivity extends AppCompatActivity
 
     private boolean isFinalizingSession = false;
 
-    /**
-     * Finaliza la sesión actual si existe
-     * Evita múltiples llamadas simultáneas
-     */
     private void finalizeSession() {
         // Evitar múltiples llamadas simultáneas
         if (isFinalizingSession) {
@@ -1282,15 +1210,13 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onPause() {
-        super.onPause();
-        // Guardar estado pero mantener sesión activa
+        super.onPause();¿
         Log.d("LIFECYCLE", "MainActivity onPause - sesión se mantiene activa");
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        // La app está en segundo plano pero la sesión sigue activa
         Log.d("LIFECYCLE", "MainActivity onStop - sesión se mantiene activa");
     }
 
