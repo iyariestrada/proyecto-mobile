@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity
 
     // Umbrales de aceleración (m/s²) - Ajustados para uso activo del teléfono
     // Valores reducidos para detectar pasos cuando el usuario usa el dispositivo
-    private static final float STEP_THRESHOLD_MIN = 0.5f; // Umbral mínimo (uso activo del teléfono)
+    private static final float STEP_THRESHOLD_MIN = 0.6f; // Umbral mínimo (uso activo del teléfono)
     private static final float STEP_THRESHOLD_MAX = 3.5f; // Umbral máximo (caminata rápida con teléfono)
     private static final float DYNAMIC_FACTOR = 1.5f; // Factor para umbral dinámico adaptativo
 
